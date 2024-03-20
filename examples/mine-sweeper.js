@@ -1,4 +1,4 @@
-import {html, render, classes} from "../lib.js";
+import {html, render} from "../lib.js";
 
 const PLAY_STATES = {
 	PLAYING: 0,
@@ -55,6 +55,19 @@ export default function mineSweeper({height, width, mineCount}, target) {
 							<div role="row">
 								${range(width).map((x) => {
 									let square = boardMap.get(`${x} ${y}`);
+									let classes = Object.entries({
+										revealed: square.isRevealed,
+										flagged: square.isFlagged,
+										...range(8).reduce((cls, i) => {
+											cls[`armed-adjacent-count--${i}`] =
+												square.armedAdjacentCount === i;
+
+											return cls;
+										}, {}),
+									})
+										.filter(([, value]) => !!value)
+										.map(([key]) => key)
+										.join(" ");
 
 									return html`
 											<div role="gridcell" aria-rowindex="${y + 1}" aria-colindex="${x + 1}">
@@ -62,16 +75,7 @@ export default function mineSweeper({height, width, mineCount}, target) {
 													aria-label="${square.isRevealed ? null : "Hidden"}"
 													type="button"
 													style="--column: ${x + 1}; --row: ${y + 1}"
-													class="${classes({
-														revealed: square.isRevealed,
-														flagged: square.isFlagged,
-														...range(8).reduce((cls, i) => {
-															cls[`armed-adjacent-count--${i}`] =
-																square.armedAdjacentCount === i;
-
-															return cls;
-														}, {}),
-													})}"
+													class="${classes}"
 													onclick=${revealSquare(x, y)}
 													oncontextmenu=${toggleFlag(x, y)}
 													onkeydown=${moveFocus(x, y)}>

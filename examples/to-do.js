@@ -1,4 +1,4 @@
-import {html, render, classes} from "../lib.js";
+import {html, render} from "../lib.js";
 
 export default function todoApp(target) {
 	let state = JSON.parse(localStorage.getItem("to-do-app")) ?? {
@@ -77,16 +77,21 @@ export default function todoApp(target) {
 								if (!state.showDone && item.isDone && !item.isLeaving) {
 									return null;
 								}
+								let classes = Object.entries({
+									item: true,
+									done: item.isDone,
+									leaving: item.isLeaving,
+									entering: item.isEntering,
+									dragging: dragItem === item,
+								})
+									.filter(([, value]) => !!value)
+									.map(([key]) => key)
+									.join(" ");
 
 								return html`
 									<li
 										draggable="true"
-										class="item ${classes({
-											done: item.isDone,
-											leaving: item.isLeaving,
-											entering: item.isEntering,
-											dragging: dragItem === item,
-										})}"
+										class="${classes}"
 										ondragstart=${(e) => {
 											dragItem = item;
 
