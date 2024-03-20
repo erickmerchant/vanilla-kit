@@ -77,21 +77,28 @@ export default function todoApp(target) {
 								if (!state.showDone && item.isDone && !item.isLeaving) {
 									return null;
 								}
-								let classes = Object.entries({
-									item: true,
-									done: item.isDone,
-									leaving: item.isLeaving,
-									entering: item.isEntering,
-									dragging: dragItem === item,
-								})
-									.filter(([, value]) => !!value)
-									.map(([key]) => key)
-									.join(" ");
+								let classes = ["item"];
+
+								if (item.isDone) {
+									classes.push("done");
+								}
+
+								if (item.isLeaving) {
+									classes.push("leaving");
+								}
+
+								if (item.isEntering) {
+									classes.push("entering");
+								}
+
+								if (dragItem === item) {
+									classes.push("dragging");
+								}
 
 								return html`
 									<li
 										draggable="true"
-										class="${classes}"
+										class="${classes.join(" ")}"
 										ondragstart=${(e) => {
 											dragItem = item;
 
