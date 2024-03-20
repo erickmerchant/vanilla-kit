@@ -1,8 +1,8 @@
 * {
 	box-sizing: border-box;
-	padding: 0;
-	margin: 0;
 	font: inherit;
+	margin: 0;
+	padding: 0;
 }
 
 html {
@@ -16,23 +16,23 @@ body {
 }
 
 to-do-app {
+	accent-color: oklch(0.5 0.3 150);
+	align-items: center;
 	display: grid;
-	max-inline-size: 40em;
-	padding-inline: 1em;
-	margin-inline: auto;
-	margin-block-start: 1em;
+	gap: 0.5em;
 	grid-auto-rows: max-content;
 	grid-template-columns: auto min-content min-content;
-	gap: 0.5em;
-	align-items: center;
+	margin-block-start: 1em;
+	margin-inline: auto;
+	max-inline-size: 40em;
+	padding-inline: 1em;
 	white-space: nowrap;
-	accent-color: oklch(0.5 0.3 150);
 }
 
 [type="checkbox"] {
-	inline-size: 1em;
 	block-size: 1em;
 	cursor: pointer;
+	inline-size: 1em;
 }
 
 .title {
@@ -41,35 +41,35 @@ to-do-app {
 }
 
 .input-text {
-	grid-column: 1 / -1;
 	appearance: none;
-	padding-block: 0.25em;
-	padding-inline: 0.5em;
 	border: 1px solid oklch(0.5 0 0);
 	border-radius: 0.25em;
+	grid-column: 1 / -1;
+	padding-block: 0.25em;
+	padding-inline: 0.5em;
 }
 
 .list {
-	grid-column: 1 / -1;
 	display: grid;
-	grid-template-rows: max-content;
-	grid-template-columns: max-content auto max-content;
 	gap: 0.5em;
+	grid-column: 1 / -1;
+	grid-template-columns: max-content auto max-content;
+	grid-template-rows: max-content;
 	list-style: none;
 }
 
 .item {
-	grid-column: 1 / -1;
-	display: grid;
-	background-color: oklch(1 0 0);
-	padding-block: 0.25em;
-	padding-inline: 0.25em;
-	border-radius: 0.25em;
-	grid-template-columns: subgrid;
 	align-items: center;
-	cursor: move;
 	animation-duration: 0.125s;
 	animation-fill-mode: both;
+	background-color: oklch(1 0 0);
+	border-radius: 0.25em;
+	cursor: move;
+	display: grid;
+	grid-column: 1 / -1;
+	grid-template-columns: subgrid;
+	padding-block: 0.25em;
+	padding-inline: 0.25em;
 
 	:where(:not(a, button, input)) {
 		cursor: inherit;
@@ -99,17 +99,17 @@ to-do-app {
 }
 
 .delete {
-	inline-size: 1em;
-	block-size: 1em;
 	appearance: none;
 	background-color: oklch(0 0 0 / 0);
+	block-size: 1em;
 	border: 0;
 	cursor: pointer;
+	inline-size: 1em;
 
 	:where(svg) {
-		inline-size: 1em;
 		block-size: 1em;
 		fill: oklch(0.5 0.3 30);
+		inline-size: 1em;
 	}
 }
 
