@@ -5,8 +5,6 @@ let effectQueue = [];
 let effectScheduled = false;
 let reads = new WeakMap();
 let RENDERER = Symbol("renderer");
-let unregistered = new Set();
-let registered = new WeakMap();
 
 export function effect(...callbacks) {
 	effectQueue.push(...callbacks);
@@ -23,27 +21,11 @@ export function effect(...callbacks) {
 			for (let cb of callbacks) {
 				current = cb;
 
-				if (unregistered.has(cb)) {
-					unregistered.delete(cb);
-				} else {
-					cb();
-				}
+				cb();
 			}
 
 			current = prev;
 		}, 0);
-	}
-}
-
-function unregister(element) {
-	let callbacks = registered.get(element);
-
-	if (callbacks) {
-		for (let cb of callbacks) {
-			unregistered.add(cb);
-		}
-
-		registered.delete(element);
 	}
 }
 
@@ -189,6 +171,7 @@ export function render(
 	element,
 	namespace = element.namespaceURI
 ) {
+	let elementRef = new WeakRef(element);
 	let document = element.ownerDocument;
 
 	for (let {name, value} of node.attrs ?? []) {
@@ -199,6 +182,12 @@ export function render(
 				element.addEventListener(name, ...[].concat(args[value]));
 			} else {
 				effect(() => {
+					let element = elementRef.deref();
+
+					if (!element) {
+						return;
+					}
+
 					let current = callOrReturn(args[value]);
 
 					if (element[name] !== current) {
@@ -208,6 +197,12 @@ export function render(
 			}
 		} else {
 			effect(() => {
+				let element = elementRef.deref();
+
+				if (!element) {
+					return;
+				}
+
 				let current = null;
 
 				for (let v of value) {
@@ -245,7 +240,7 @@ export function render(
 
 				element.append(start, end);
 
-				subNode[RENDERER](start, end, namespace);
+				subNode[RENDERER](new WeakRef(start), new WeakRef(end), namespace);
 			} else {
 				let subNamespace =
 					subNode.node.name === "svg"
@@ -296,8 +291,15 @@ function callOrReturn(value) {
 
 function include(value) {
 	return {
-		[RENDERER]: (start, end, namespace) => {
+		[RENDERER]: (startRef, endRef, namespace) => {
 			effect(() => {
+				let start = startRef.deref();
+				let end = endRef.deref();
+
+				if (!start || !end) {
+					return;
+				}
+
 				let currentChild = start.nextSibling;
 
 				truncate(currentChild, end);
@@ -322,11 +324,18 @@ function include(value) {
 
 export function each(list, callback) {
 	return {
-		[RENDERER]: (start, end, namespace) => {
+		[RENDERER]: (startRef, endRef, namespace) => {
 			let views = [];
 			let fragment = new DocumentFragment();
 
 			effect(() => {
+				let start = startRef.deref();
+				let end = endRef.deref();
+
+				if (!start || !end) {
+					return;
+				}
+
 				let i = 0;
 				let currentChild = start.nextSibling;
 
@@ -386,8 +395,6 @@ function truncate(currentChild, end) {
 		}
 
 		let nextChild = currentChild.nextSibling;
-
-		unregister(currentChild);
 
 		currentChild.remove();
 
