@@ -1,12 +1,17 @@
-import {html, render} from "../lib.js";
+import {html, render, effect, watch, each} from "../lib.js";
 
 export default function todoApp(target) {
-	let state = JSON.parse(localStorage.getItem("to-do-app")) ?? {
-		showDone: true,
-		list: [],
-	};
-	let dragItem;
-	let scheduled = false;
+	let state = watch(
+		JSON.parse(localStorage.getItem("to-do-app")) ?? {
+			showDone: true,
+			list: [],
+		}
+	);
+	let dragState = watch({
+		item: null,
+	});
+
+	state.list = watch(state.list.map((item) => watch(item)));
 
 	document.body.addEventListener("dragover", preventDragAway);
 
@@ -14,162 +19,151 @@ export default function todoApp(target) {
 
 	document.body.addEventListener("drop", preventDragAway);
 
-	update();
-
-	function update() {
+	effect(() => {
 		localStorage.setItem("to-do-app", JSON.stringify(state));
+	});
 
-		if (!scheduled) {
-			scheduled = true;
+	render(
+		html`<h1 class="title">To Do List</h1>
+			<input
+				class="show-done"
+				id="show-done"
+				type="checkbox"
+				checked=${() => state.showDone}
+				onchange=${(e) => {
+					let show = e.target.checked;
 
-			requestAnimationFrame(() => {
-				scheduled = false;
+					for (let item of state.list) {
+						if (item.isDone) {
+							item.isEntering = show;
+							item.isLeaving = !show;
+						}
+					}
 
-				render(
-					html`<h1 class="title">To Do List</h1>
-						<input
-							class="show-done"
-							id="show-done"
-							type="checkbox"
-							checked=${state.showDone}
-							onchange=${(e) => {
-								let show = e.target.checked;
+					state.showDone = show;
+				}} />
+			<label for="show-done">Show done</label>
+			<input
+				class="input-text"
+				placeholder="What do you have to do?"
+				onkeypress=${(e) => {
+					if (e.keyCode === 13) {
+						e.preventDefault();
 
-								for (let item of state.list) {
-									if (item.isDone) {
-										item.isEntering = show;
-										item.isLeaving = !show;
-									}
-								}
+						let text = e.target.value.trim();
 
-								state.showDone = show;
+						if (!text) {
+							return;
+						}
 
-								update();
-							}} />
-						<label for="show-done">Show done</label>
-						<input
-							class="input-text"
-							placeholder="What do you have to do?"
-							onkeypress=${(e) => {
-								if (e.keyCode === 13) {
-									e.preventDefault();
+						state.list.push(
+							watch({
+								text,
+								isDone: false,
+								isEntering: true,
+								isLeaving: false,
+							})
+						);
 
-									let text = e.target.value.trim();
+						e.target.value = "";
+					}
+				}} />
+			<ol class="list">
+				${each(state.list, (item) => {
+					if (!state.showDone && item.isDone && !item.isLeaving) {
+						return null;
+					}
 
-									if (!text) {
-										return;
-									}
+					return liView;
+				})}
+			</ol>`,
+		target
+	);
 
-									state.list.push({
-										text,
-										isDone: false,
-										isEntering: true,
-										isLeaving: false,
-									});
+	function liView(view) {
+		let classes = () => {
+			let list = ["item"];
 
-									e.target.value = "";
+			if (view.item.isDone) {
+				list.push("done");
+			}
 
-									update();
-								}
-							}} />
-						<ol class="list">
-							${state.list.map((item, index) => {
-								if (!state.showDone && item.isDone && !item.isLeaving) {
-									return null;
-								}
-								let classes = ["item"];
+			if (view.item.isLeaving) {
+				list.push("leaving");
+			}
 
-								if (item.isDone) {
-									classes.push("done");
-								}
+			if (view.item.isEntering) {
+				list.push("entering");
+			}
 
-								if (item.isLeaving) {
-									classes.push("leaving");
-								}
+			if (dragState.item === view.item) {
+				list.push("dragging");
+			}
 
-								if (item.isEntering) {
-									classes.push("entering");
-								}
+			return list.join(" ");
+		};
 
-								if (dragItem === item) {
-									classes.push("dragging");
-								}
+		return html`
+			<li
+				draggable="true"
+				class="${classes}"
+				ondragstart=${(e) => {
+					dragState.item = view.item;
 
-								return html`
-									<li
-										draggable="true"
-										class="${classes.join(" ")}"
-										ondragstart=${(e) => {
-											dragItem = item;
+					e.dataTransfer.effectAllowed = "move";
+				}}
+				ondragend=${() => {
+					dragState.item = null;
+				}}
+				ondragenter=${() => {
+					if (dragState.item != null) {
+						let from = state.list.findIndex((t) => t === dragState.item);
 
-											e.dataTransfer.effectAllowed = "move";
-											// e.dataTransfer.setDragImage(this, e.offsetX, e.offsetY);
-										}}
-										ondragend=${() => {
-											dragItem = null;
+						state.list.splice(from, 1);
+						state.list.splice(view.index, 0, dragState.item);
+					}
+				}}
+				ondragover=${preventDefault}
+				ondragleave=${preventDefault}
+				ondrop=${preventDefault}
+				onanimationend=${() => {
+					view.item.isLeaving = false;
+					view.item.isEntering = false;
 
-											update();
-										}}
-										ondragenter=${() => {
-											if (dragItem != null) {
-												let from = state.list.findIndex((t) => t === dragItem);
+					if (view.item.isDeleted) {
+						state.list.splice(
+							state.list.findIndex((item) => item === view.item),
+							1
+						);
+					}
+				}}>
+				<input
+					type="checkbox"
+					id="item-${() => view.index}"
+					checked=${() => view.item.isDone}
+					onchange=${() => {
+						if (!state.showDone && view.item.isDone) {
+							view.item.isLeaving = true;
+						}
 
-												state.list.splice(from, 1);
-												state.list.splice(index, 0, dragItem);
-
-												update();
-											}
-										}}
-										ondragover=${preventDefault}
-										ondragleave=${preventDefault}
-										ondrop=${preventDefault}
-										onanimationend=${() => {
-											item.isLeaving = false;
-											item.isEntering = false;
-
-											if (item.isDeleted) {
-												state.list.splice(index, 1);
-											}
-
-											update();
-										}}>
-										<input
-											type="checkbox"
-											id="${`item-${index}`}"
-											checked=${item.isDone}
-											onchange=${() => {
-												if (!state.showDone && item.isDone) {
-													item.isLeaving = true;
-												}
-
-												item.isDone = !item.isDone;
-
-												update();
-											}} />
-										<label for="${`item-${index}`}">${item.text}</label>
-										<button
-											type="button"
-											class="delete"
-											onclick=${() => {
-												item.isLeaving = true;
-												item.isDeleted = true;
-
-												update();
-											}}>
-											<svg viewBox="0 0 16 16">
-												<title>Delete</title>
-												<path
-													d="M4 1 L8 5 L12 1 L15 4 L11 8 L15 12 L12 15 L8 11 L4 15 L1 12 L5 8 L1 4 Z" />
-											</svg>
-										</button>
-									</li>
-								`;
-							})}
-						</ol>`,
-					target
-				);
-			});
-		}
+						view.item.isDone = !view.item.isDone;
+					}} />
+				<label for="item-${() => view.index}">${() => view.item.text}</label>
+				<button
+					type="button"
+					class="delete"
+					onclick=${() => {
+						view.item.isLeaving = true;
+						view.item.isDeleted = true;
+					}}>
+					<svg viewBox="0 0 16 16">
+						<title>Delete</title>
+						<path
+							d="M4 1 L8 5 L12 1 L15 4 L11 8 L15 12 L12 15 L8 11 L4 15 L1 12 L5 8 L1 4 Z" />
+					</svg>
+				</button>
+			</li>
+		`;
 	}
 
 	function preventDefault(e) {
@@ -177,7 +171,7 @@ export default function todoApp(target) {
 	}
 
 	function preventDragAway(e) {
-		if (dragItem != null) {
+		if (dragState.item != null) {
 			e.preventDefault();
 		}
 	}

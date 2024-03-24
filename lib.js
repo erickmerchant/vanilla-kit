@@ -1,7 +1,85 @@
 let htmlMap = new WeakMap();
-let nodeMap = new WeakMap();
-let eventMap = new WeakMap();
 let tokensRegex = /(?<!\\)(<!--|-->|<[\w-]+|<\/[\w-]+>|\/>|[\'\"=>])/;
+let current;
+let effectQueue = [];
+let effectScheduled = false;
+let reads = new WeakMap();
+let RENDERER = Symbol("renderer");
+let unregistered = new Set();
+let registered = new WeakMap();
+
+export function effect(...callbacks) {
+	effectQueue.push(...callbacks);
+
+	if (!effectScheduled) {
+		effectScheduled = true;
+
+		setTimeout(() => {
+			effectScheduled = false;
+
+			let callbacks = effectQueue.splice(0, Infinity);
+
+			let prev = current;
+
+			for (let cb of callbacks) {
+				current = cb;
+
+				if (unregistered.has(cb)) {
+					unregistered.delete(cb);
+				} else {
+					cb();
+				}
+			}
+
+			current = prev;
+		}, 0);
+	}
+}
+
+function unregister(element) {
+	let callbacks = registered.get(element);
+
+	if (callbacks) {
+		for (let cb of callbacks) {
+			unregistered.add(cb);
+		}
+
+		registered.delete(element);
+	}
+}
+
+export function watch(object) {
+	reads.set(object, new Map());
+
+	return new Proxy(object, {set, get});
+}
+
+function get(o, key, r) {
+	if (current) {
+		let callbacks = reads.get(o).get(key);
+
+		if (!callbacks) {
+			callbacks = new Set();
+			reads.get(o).set(key, callbacks);
+		}
+
+		callbacks.add(current);
+	}
+
+	return Reflect.get(o, key, r);
+}
+
+function set(o, key, value, r) {
+	let callbacks = reads.get(o).get(key);
+
+	if (callbacks) {
+		effect(...callbacks);
+
+		callbacks.clear();
+	}
+
+	return Reflect.set(o, key, value, r);
+}
 
 export function html(strs, ...args) {
 	let node = htmlMap.get(strs);
@@ -77,7 +155,6 @@ export function html(strs, ...args) {
 					mode = 3;
 				} else if (dynamic) {
 					attr.value = token;
-					attr.dynamic = true;
 
 					mode = 1;
 				} else {
@@ -88,15 +165,7 @@ export function html(strs, ...args) {
 
 				quote = null;
 			} else {
-				attr.dynamic ||= dynamic;
-
 				attr.value.push(token);
-			}
-
-			if (dynamic) {
-				for (let s of stack) {
-					s.dynamic = true;
-				}
 			}
 		}
 
@@ -119,152 +188,211 @@ function* tokenize(...strs) {
 export function render(
 	{node, args},
 	element,
-	isSimilar = nodeMap.get(element) === node,
-	namespace = getNamespace(node)
+	namespace = element.namespaceURI
 ) {
 	let document = element.ownerDocument;
-	let currentChild = element.firstChild;
 
-	if (node.root && !isSimilar) {
-		nodeMap.set(element, node);
-	}
-
-	for (let {name, value, dynamic} of node.attrs ?? []) {
-		if (isSimilar && !dynamic) continue;
-
+	for (let {name, value} of node.attrs ?? []) {
 		if (typeof value === "number") {
-			let current = args[value];
-
 			if (name.startsWith("on")) {
 				name = name.slice(2);
 
-				if (!isSimilar) {
-					element.addEventListener(name, handleEvent);
-				}
-
-				let events = eventMap.get(element);
-
-				if (!events) {
-					events = {};
-
-					eventMap.set(element, events);
-				}
-
-				events[name] = current;
+				element.addEventListener(name, ...[].concat(args[value]));
 			} else {
-				if (element[name] !== current) {
-					element[name] = current;
-				}
+				effect(() => {
+					let current = callOrReturn(args[value]);
+
+					if (element[name] !== current) {
+						element[name] = current;
+					}
+				});
 			}
 		} else {
-			let current = null;
+			effect(() => {
+				let current = null;
 
-			for (let v of value) {
-				if (typeof v === "number") {
-					v = args[v];
+				for (let v of value) {
+					if (typeof v === "number") {
+						v = callOrReturn(args[v]);
+					}
+
+					if (v == null) {
+						continue;
+					}
+
+					current ??= "";
+
+					current += v;
 				}
 
-				if (v == null) {
-					continue;
+				if (current !== null) {
+					element.setAttribute(name, current);
+				} else {
+					element.removeAttribute(name);
 				}
-
-				current ??= "";
-
-				current += v;
-			}
-
-			if (current !== null) {
-				element.setAttribute(name, current);
-			} else {
-				element.removeAttribute(name);
-			}
+			});
 		}
 	}
-
-	let canSkip = true;
 
 	for (let subNode of walkNodes({node, args})) {
 		if (subNode == null) continue;
 
-		let newChild;
-		let isDynamic = subNode.node?.dynamic;
+		if (typeof subNode === "string") {
+			element.append(subNode);
+		} else if (typeof subNode === "object") {
+			if (subNode[RENDERER]) {
+				let start = document.createComment("");
+				let end = document.createComment("");
 
-		if (!canSkip || !currentChild || isDynamic) {
-			canSkip = canSkip ? !isDynamic : canSkip;
+				element.append(start, end);
 
-			if (subNode.node.text) {
-				if (currentChild?.nodeType === 3) {
-					if (currentChild.nodeValue !== String(subNode.node.value)) {
-						currentChild.nodeValue = subNode.node.value;
-					}
-				} else {
-					newChild = document.createTextNode(subNode.node.value);
-				}
+				subNode[RENDERER](start, end, namespace);
 			} else {
-				let subIsSimilar = subNode.node.root
-					? nodeMap.get(currentChild) === subNode.node
-					: isSimilar;
-				let subNamespace = getNamespace(subNode.node, namespace);
+				let subNamespace =
+					subNode.node.name === "svg"
+						? "http://www.w3.org/2000/svg"
+						: namespace;
 
-				if (!subIsSimilar) {
-					newChild = document.createElementNS(subNamespace, subNode.node.name);
-				}
+				let newChild = document.createElementNS(
+					subNamespace,
+					subNode.node.name
+				);
 
-				render(subNode, newChild ?? currentChild, subIsSimilar, subNamespace);
-			}
-		}
-
-		if (newChild) {
-			if (currentChild) {
-				currentChild.replaceWith(newChild);
-			} else {
 				element.append(newChild);
-			}
 
-			currentChild = newChild;
+				render(subNode, newChild, subNamespace);
+			}
+		}
+	}
+}
+
+function* walkNodes({node, args}) {
+	for (let n of node.nodes) {
+		if (typeof n === "number") {
+			let values = [].concat(args[n]);
+
+			for (let value of values) {
+				if (value != null) {
+					if (typeof value === "function") {
+						yield include(value);
+					} else if (value[RENDERER]) {
+						yield value;
+					} else if (value.node) {
+						yield* walkNodes(value);
+					} else {
+						yield String(value);
+					}
+				}
+			}
+		} else if (n.nodes) {
+			yield {node: n, args};
+		} else {
+			yield String(n);
+		}
+	}
+}
+
+function callOrReturn(value) {
+	return typeof value === "function" ? value() : value;
+}
+
+function include(value) {
+	return {
+		[RENDERER]: (start, end, namespace) => {
+			effect(() => {
+				let currentChild = start.nextSibling;
+
+				truncate(currentChild, end);
+
+				let result = callOrReturn(value);
+
+				if (result != null) {
+					if (result.node) {
+						let fragment = new DocumentFragment();
+
+						render(result, fragment, namespace);
+
+						start.after(fragment);
+					} else {
+						start.after(result);
+					}
+				}
+			});
+		},
+	};
+}
+
+export function each(list, callback) {
+	return {
+		[RENDERER]: (start, end, namespace) => {
+			let views = [];
+			let fragment = new DocumentFragment();
+
+			effect(() => {
+				let i = 0;
+				let currentChild = start.nextSibling;
+
+				if (currentChild === end) {
+					currentChild = null;
+				}
+
+				for (let j = 0; j < list.length; j++) {
+					let item = list[j];
+					let cb = callback(item, j);
+
+					if (cb == null) {
+						continue;
+					}
+
+					let view = views[i];
+
+					if (!view) {
+						view = watch({});
+
+						views.push(view);
+					}
+
+					if (item !== view.item) {
+						view.item = item;
+					}
+
+					view.index = j;
+
+					if (!currentChild) {
+						render(cb(view), fragment, namespace);
+					}
+
+					currentChild = currentChild?.nextSibling;
+
+					if (currentChild === end) {
+						currentChild = null;
+					}
+
+					i++;
+				}
+
+				end.before(fragment);
+
+				views.splice(i, Infinity);
+
+				truncate(currentChild, end);
+			});
+		},
+	};
+}
+
+function truncate(currentChild, end) {
+	while (currentChild) {
+		if (currentChild === end) {
+			break;
 		}
 
-		currentChild = currentChild?.nextSibling;
-	}
-
-	while (currentChild) {
 		let nextChild = currentChild.nextSibling;
+
+		unregister(currentChild);
 
 		currentChild.remove();
 
 		currentChild = nextChild;
 	}
-}
-
-function handleEvent(event) {
-	eventMap
-		.get(event.currentTarget)
-		?.[event.type]?.call(event.currentTarget, event);
-}
-
-function* walkNodes({node, args}) {
-	for (let n of node.nodes) {
-		if (n.nodes) {
-			yield {node: n, args};
-		} else if (typeof n === "number") {
-			let value = args[n];
-
-			value = typeof value === "function" ? Array.from(value()) : value;
-
-			for (let result of [].concat(value)) {
-				if (result == null) yield null;
-				else if (result.node) {
-					yield* walkNodes(result);
-				} else {
-					yield {node: {text: true, dynamic: true, value: result}};
-				}
-			}
-		} else {
-			yield {node: {text: true, dynamic: false, value: n}};
-		}
-	}
-}
-
-function getNamespace(node, namespace = "http://www.w3.org/1999/xhtml") {
-	return node?.name === "svg" ? "http://www.w3.org/2000/svg" : namespace;
 }
