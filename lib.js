@@ -1,10 +1,20 @@
 let htmlMap = new WeakMap();
 let tokensRegex = /(?<!\\)(<!--|-->|<[\w-]+|<\/[\w-]+>|\/>|[\'\"=>])/;
-let current;
+let currentCallback;
 let effectQueue = [];
 let effectScheduled = false;
 let reads = new WeakMap();
 let RENDERER = Symbol("renderer");
+
+function immediateEffect(callback) {
+	let prev = currentCallback;
+
+	currentCallback = callback;
+
+	callback();
+
+	currentCallback = prev;
+}
 
 export function effect(...callbacks) {
 	effectQueue.push(...callbacks);
@@ -16,15 +26,15 @@ export function effect(...callbacks) {
 			effectScheduled = false;
 
 			let callbacks = effectQueue.splice(0, Infinity);
-			let prev = current;
+			let prev = currentCallback;
 
 			for (let cb of callbacks) {
-				current = cb;
+				currentCallback = cb;
 
 				cb();
 			}
 
-			current = prev;
+			currentCallback = prev;
 		}, 0);
 	}
 }
@@ -36,7 +46,7 @@ export function watch(object) {
 }
 
 function get(o, key, r) {
-	if (current) {
+	if (currentCallback) {
 		let callbacks = reads.get(o).get(key);
 
 		if (!callbacks) {
@@ -44,7 +54,7 @@ function get(o, key, r) {
 			reads.get(o).set(key, callbacks);
 		}
 
-		callbacks.add(current);
+		callbacks.add(currentCallback);
 	}
 
 	return Reflect.get(o, key, r);
@@ -181,7 +191,7 @@ export function render(
 
 				element.addEventListener(name, ...[].concat(args[value]));
 			} else {
-				effect(() => {
+				immediateEffect(() => {
 					let element = elementRef.deref();
 
 					if (!element) {
@@ -196,7 +206,7 @@ export function render(
 				});
 			}
 		} else {
-			effect(() => {
+			immediateEffect(() => {
 				let element = elementRef.deref();
 
 				if (!element) {
@@ -292,7 +302,7 @@ function callOrReturn(value) {
 function include(value) {
 	return {
 		[RENDERER]: (startRef, endRef, namespace) => {
-			effect(() => {
+			immediateEffect(() => {
 				let start = startRef.deref();
 				let end = endRef.deref();
 
@@ -328,7 +338,7 @@ export function each(list, callback) {
 			let views = [];
 			let fragment = new DocumentFragment();
 
-			effect(() => {
+			immediateEffect(() => {
 				let start = startRef.deref();
 				let end = endRef.deref();
 
