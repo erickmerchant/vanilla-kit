@@ -18,7 +18,6 @@ export function effect(...callbacks) {
 			effectScheduled = false;
 
 			let callbacks = effectQueue.splice(0, Infinity);
-
 			let prev = current;
 
 			for (let cb of callbacks) {
@@ -252,7 +251,6 @@ export function render(
 					subNode.node.name === "svg"
 						? "http://www.w3.org/2000/svg"
 						: namespace;
-
 				let newChild = document.createElementNS(
 					subNamespace,
 					subNode.node.name
