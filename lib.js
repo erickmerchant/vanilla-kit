@@ -304,7 +304,6 @@ export function each(list, callback) {
 	return {
 		[RENDERER]: (startRef, endRef, namespace) => {
 			let views = [];
-			let fragment = new DocumentFragment();
 
 			mutationEffect(
 				(start, end) => {
@@ -314,6 +313,8 @@ export function each(list, callback) {
 					if (currentChild === end) {
 						currentChild = null;
 					}
+
+					let fragment = new DocumentFragment();
 
 					for (let j = 0; j < list.length; j++) {
 						let item = list[j];
