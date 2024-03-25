@@ -1,20 +1,9 @@
-let htmlMap = new WeakMap();
-let tokensRegex = /(?<!\\)(<!--|-->|<[\w-]+|<\/[\w-]+>|\/>|[\'\"=>])/;
+/* Reactivity */
+
 let currentCallback;
 let effectQueue = [];
 let effectScheduled = false;
 let reads = new WeakMap();
-let RENDERER = Symbol("renderer");
-
-function immediateEffect(callback) {
-	let prev = currentCallback;
-
-	currentCallback = callback;
-
-	callback();
-
-	currentCallback = prev;
-}
 
 export function effect(...callbacks) {
 	effectQueue.push(...callbacks);
@@ -26,15 +15,10 @@ export function effect(...callbacks) {
 			effectScheduled = false;
 
 			let callbacks = effectQueue.splice(0, Infinity);
-			let prev = currentCallback;
 
 			for (let cb of callbacks) {
-				currentCallback = cb;
-
-				cb();
+				immediateEffect(cb);
 			}
-
-			currentCallback = prev;
 		}, 0);
 	}
 }
@@ -43,6 +27,28 @@ export function watch(object) {
 	reads.set(object, new Map());
 
 	return new Proxy(object, {set, get});
+}
+
+function immediateEffect(callback) {
+	let prev = currentCallback;
+
+	currentCallback = callback;
+
+	callback();
+
+	currentCallback = prev;
+}
+
+function mutationEffect(callback, ...refs) {
+	immediateEffect(() => {
+		let args = refs.map((ref) => ref.deref());
+
+		if (args.some((arg) => arg == null)) {
+			return;
+		}
+
+		callback(...args);
+	});
 }
 
 function get(o, key, r) {
@@ -71,6 +77,11 @@ function set(o, key, value, r) {
 
 	return Reflect.set(o, key, value, r);
 }
+
+/* Declarative */
+
+let htmlMap = new WeakMap();
+let tokensRegex = /(?<!\\)(<!--|-->|<[\w-]+|<\/[\w-]+>|\/>|[\'\"=>])/;
 
 export function html(strs, ...args) {
 	let node = htmlMap.get(strs);
@@ -176,6 +187,10 @@ function* tokenize(...strs) {
 	}
 }
 
+/* Rendering */
+
+let RENDERER = Symbol("renderer");
+
 export function render(
 	{node, args},
 	element,
@@ -191,28 +206,16 @@ export function render(
 
 				element.addEventListener(name, ...[].concat(args[value]));
 			} else {
-				immediateEffect(() => {
-					let element = elementRef.deref();
-
-					if (!element) {
-						return;
-					}
-
+				mutationEffect((element) => {
 					let current = callOrReturn(args[value]);
 
 					if (element[name] !== current) {
 						element[name] = current;
 					}
-				});
+				}, elementRef);
 			}
 		} else {
-			immediateEffect(() => {
-				let element = elementRef.deref();
-
-				if (!element) {
-					return;
-				}
-
+			mutationEffect((element) => {
 				let current = null;
 
 				for (let v of value) {
@@ -234,7 +237,7 @@ export function render(
 				} else {
 					element.removeAttribute(name);
 				}
-			});
+			}, elementRef);
 		}
 	}
 
@@ -295,42 +298,7 @@ function* walkNodes({node, args}) {
 	}
 }
 
-function callOrReturn(value) {
-	return typeof value === "function" ? value() : value;
-}
-
-function include(value) {
-	return {
-		[RENDERER]: (startRef, endRef, namespace) => {
-			immediateEffect(() => {
-				let start = startRef.deref();
-				let end = endRef.deref();
-
-				if (!start || !end) {
-					return;
-				}
-
-				let currentChild = start.nextSibling;
-
-				truncate(currentChild, end);
-
-				let result = callOrReturn(value);
-
-				if (result != null) {
-					if (result.node) {
-						let fragment = new DocumentFragment();
-
-						render(result, fragment, namespace);
-
-						start.after(fragment);
-					} else {
-						start.after(result);
-					}
-				}
-			});
-		},
-	};
-}
+/* Renderers */
 
 export function each(list, callback) {
 	return {
@@ -338,62 +306,98 @@ export function each(list, callback) {
 			let views = [];
 			let fragment = new DocumentFragment();
 
-			immediateEffect(() => {
-				let start = startRef.deref();
-				let end = endRef.deref();
-
-				if (!start || !end) {
-					return;
-				}
-
-				let i = 0;
-				let currentChild = start.nextSibling;
-
-				if (currentChild === end) {
-					currentChild = null;
-				}
-
-				for (let j = 0; j < list.length; j++) {
-					let item = list[j];
-					let cb = callback(item, j);
-
-					if (cb == null) {
-						continue;
-					}
-
-					let view = views[i];
-
-					if (!view) {
-						view = watch({});
-
-						views.push(view);
-					}
-
-					if (item !== view.item) {
-						view.item = item;
-					}
-
-					view.index = j;
-
-					if (!currentChild) {
-						render(cb(view), fragment, namespace);
-					}
-
-					currentChild = currentChild?.nextSibling;
+			mutationEffect(
+				(start, end) => {
+					let i = 0;
+					let currentChild = start.nextSibling;
 
 					if (currentChild === end) {
 						currentChild = null;
 					}
 
-					i++;
-				}
+					for (let j = 0; j < list.length; j++) {
+						let item = list[j];
+						let cb = callback(item, j);
 
-				end.before(fragment);
+						if (cb == null) {
+							continue;
+						}
 
-				views.splice(i, Infinity);
+						let view = views[i];
 
-				truncate(currentChild, end);
-			});
+						if (!view) {
+							view = watch({});
+
+							views.push(view);
+						}
+
+						if (item !== view.item) {
+							view.item = item;
+						}
+
+						view.index = j;
+
+						if (!currentChild) {
+							render(cb(view), fragment, namespace);
+						}
+
+						currentChild = currentChild?.nextSibling;
+
+						if (currentChild === end) {
+							currentChild = null;
+						}
+
+						i++;
+					}
+
+					end.before(fragment);
+
+					views.splice(i, Infinity);
+
+					truncate(currentChild, end);
+				},
+				startRef,
+				endRef
+			);
+		},
+	};
+}
+
+function include(value) {
+	return {
+		[RENDERER]: (startRef, endRef, namespace) => {
+			mutationEffect(
+				(start, end) => {
+					let currentChild = start.nextSibling;
+
+					let result = callOrReturn(value);
+
+					if (result != null) {
+						if (result.node) {
+							let fragment = new DocumentFragment();
+
+							truncate(currentChild, end);
+
+							render(result, fragment, namespace);
+
+							start.after(fragment);
+						} else {
+							if (
+								currentChild.nextSibling === end &&
+								currentChild.nodeType === 3
+							) {
+								currentChild.nodeValue = result;
+							} else {
+								truncate(currentChild, end);
+
+								start.after(result);
+							}
+						}
+					}
+				},
+				startRef,
+				endRef
+			);
 		},
 	};
 }
@@ -410,4 +414,10 @@ function truncate(currentChild, end) {
 
 		currentChild = nextChild;
 	}
+}
+
+/* Utils */
+
+function callOrReturn(value) {
+	return typeof value === "function" ? value() : value;
 }
