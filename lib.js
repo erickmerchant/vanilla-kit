@@ -194,7 +194,7 @@ let RENDERER = Symbol("renderer");
 export function render(
 	{node, args},
 	element,
-	namespace = element.namespaceURI
+	namespace = "http://www.w3.org/1999/xhtml"
 ) {
 	let elementRef = new WeakRef(element);
 	let document = element.ownerDocument;
