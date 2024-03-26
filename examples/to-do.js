@@ -1,4 +1,4 @@
-import {html, render, effect, watch, each} from "../lib.js";
+import {html, render, effect, watch, each, text} from "../lib.js";
 
 export default function todoApp(target) {
 	let state = watch(
@@ -148,7 +148,9 @@ export default function todoApp(target) {
 
 						view.item.isDone = !view.item.isDone;
 					}} />
-				<label for="item-${() => view.index}">${() => view.item.text}</label>
+				<label for="item-${() => view.index}">
+					${text(() => view.item.text)}
+				</label>
 				<button
 					type="button"
 					class="delete"

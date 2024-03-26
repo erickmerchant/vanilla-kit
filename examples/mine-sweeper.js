@@ -1,4 +1,4 @@
-import {html, render, watch} from "../lib.js";
+import {html, render, watch, text} from "../lib.js";
 
 const PLAY_STATES = {
 	PLAYING: 0,
@@ -39,12 +39,14 @@ export default function mineSweeper({height, width, mineCount}, target) {
 			<div class="info-panel">
 				<div class="flag-count">
 					<div>🚩</div>
-					${() => state.flagCount}
+					${text(() => state.flagCount)}
 				</div>
-				<div aria-live="polite">${() => ["", "💀", "🎉"][state.playState]}</div>
+				<div aria-live="polite">
+					${text(() => ["", "💀", "🎉"][state.playState])}
+				</div>
 				<div class="time">
 					<div>⏱️</div>
-					${() => state.time}
+					${text(() => state.time)}
 				</div>
 			</div>
 			<div
@@ -87,7 +89,7 @@ export default function mineSweeper({height, width, mineCount}, target) {
 													onclick=${revealSquare(x, y)}
 													oncontextmenu=${toggleFlag(x, y)}
 													onkeydown=${moveFocus(x, y)}>
-													${() =>
+													${text(() =>
 														!square.isRevealed
 															? square.isFlagged
 																? "🚩"
@@ -96,7 +98,8 @@ export default function mineSweeper({height, width, mineCount}, target) {
 															? "❌"
 															: square.isArmed
 															? "💥"
-															: square.armedAdjacentCount || ""}
+															: square.armedAdjacentCount || ""
+													)}
 											</div>
 										`;
 							})}

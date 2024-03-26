@@ -189,8 +189,6 @@ function* tokenize(...strs) {
 
 /* Rendering */
 
-let RENDERER = Symbol("renderer");
-
 export function render(
 	{node, args},
 	element,
@@ -246,28 +244,21 @@ export function render(
 
 		if (typeof subNode === "string") {
 			element.append(subNode);
-		} else if (typeof subNode === "object") {
-			if (subNode[RENDERER]) {
-				let start = document.createComment("");
-				let end = document.createComment("");
+		} else if (typeof subNode === "function") {
+			let start = document.createComment("");
+			let end = document.createComment("");
 
-				element.append(start, end);
+			element.append(start, end);
 
-				subNode[RENDERER](new WeakRef(start), new WeakRef(end), namespace);
-			} else {
-				let subNamespace =
-					subNode.node.name === "svg"
-						? "http://www.w3.org/2000/svg"
-						: namespace;
-				let newChild = document.createElementNS(
-					subNamespace,
-					subNode.node.name
-				);
+			subNode(new WeakRef(start), new WeakRef(end), namespace);
+		} else {
+			let subNamespace =
+				subNode.node.name === "svg" ? "http://www.w3.org/2000/svg" : namespace;
+			let newChild = document.createElementNS(subNamespace, subNode.node.name);
 
-				element.append(newChild);
+			element.append(newChild);
 
-				render(subNode, newChild, subNamespace);
-			}
+			render(subNode, newChild, subNamespace);
 		}
 	}
 }
@@ -280,8 +271,6 @@ function* walkNodes({node, args}) {
 			for (let value of values) {
 				if (value != null) {
 					if (typeof value === "function") {
-						yield include(value);
-					} else if (value[RENDERER]) {
 						yield value;
 					} else if (value.node) {
 						yield* walkNodes(value);
@@ -301,105 +290,127 @@ function* walkNodes({node, args}) {
 /* Renderers */
 
 export function each(list, callback) {
-	return {
-		[RENDERER]: (startRef, endRef, namespace) => {
-			let views = [];
+	return (startRef, endRef, namespace) => {
+		let views = [];
 
-			mutationEffect(
-				(start, end) => {
-					let i = 0;
-					let currentChild = start.nextSibling;
+		mutationEffect(
+			(start, end) => {
+				let i = 0;
+				let currentChild = start.nextSibling;
+
+				if (currentChild === end) {
+					currentChild = null;
+				}
+
+				let fragment = new DocumentFragment();
+
+				for (let j = 0; j < list.length; j++) {
+					let item = list[j];
+					let cb = callback(item, j);
+
+					if (cb == null) {
+						continue;
+					}
+
+					let view = views[i];
+
+					if (!view) {
+						view = watch({});
+
+						views.push(view);
+					}
+
+					if (item !== view.item) {
+						view.item = item;
+					}
+
+					view.index = j;
+
+					if (!currentChild) {
+						render(cb(view), fragment, namespace);
+					}
+
+					currentChild = currentChild?.nextSibling;
 
 					if (currentChild === end) {
 						currentChild = null;
 					}
 
-					let fragment = new DocumentFragment();
+					i++;
+				}
 
-					for (let j = 0; j < list.length; j++) {
-						let item = list[j];
-						let cb = callback(item, j);
+				end.before(fragment);
 
-						if (cb == null) {
-							continue;
-						}
+				views.splice(i, Infinity);
 
-						let view = views[i];
-
-						if (!view) {
-							view = watch({});
-
-							views.push(view);
-						}
-
-						if (item !== view.item) {
-							view.item = item;
-						}
-
-						view.index = j;
-
-						if (!currentChild) {
-							render(cb(view), fragment, namespace);
-						}
-
-						currentChild = currentChild?.nextSibling;
-
-						if (currentChild === end) {
-							currentChild = null;
-						}
-
-						i++;
-					}
-
-					end.before(fragment);
-
-					views.splice(i, Infinity);
-
-					truncate(currentChild, end);
-				},
-				startRef,
-				endRef
-			);
-		},
+				truncate(currentChild, end);
+			},
+			startRef,
+			endRef
+		);
 	};
 }
 
-function include(value) {
-	return {
-		[RENDERER]: (startRef, endRef, namespace) => {
-			mutationEffect(
-				(start, end) => {
-					let currentChild = start.nextSibling;
+export function include(callback) {
+	return (startRef, endRef, namespace) => {
+		mutationEffect(
+			(start, end) => {
+				let currentChild = start.nextSibling;
 
-					let result = callOrReturn(value);
+				let result = callback();
 
-					if (result != null) {
-						if (result.node) {
-							let fragment = new DocumentFragment();
+				if (result != null) {
+					if (result.node) {
+						let fragment = new DocumentFragment();
 
+						truncate(currentChild, end);
+
+						render(result, fragment, namespace);
+
+						start.after(fragment);
+					} else {
+						if (
+							currentChild.nextSibling === end &&
+							currentChild.nodeType === 3
+						) {
+							currentChild.nodeValue = result;
+						} else {
 							truncate(currentChild, end);
 
-							render(result, fragment, namespace);
-
-							start.after(fragment);
-						} else {
-							if (
-								currentChild.nextSibling === end &&
-								currentChild.nodeType === 3
-							) {
-								currentChild.nodeValue = result;
-							} else {
-								truncate(currentChild, end);
-
-								start.after(result);
-							}
+							start.after(result);
 						}
 					}
-				},
-				startRef,
-				endRef
-			);
-		},
+				} else {
+					truncate(currentChild, end);
+				}
+			},
+			startRef,
+			endRef
+		);
+	};
+}
+
+export function text(callback) {
+	return (startRef, endRef) => {
+		mutationEffect(
+			(start, end) => {
+				let currentChild = start.nextSibling;
+
+				let result = callback();
+
+				if (result != null) {
+					if (currentChild !== end) {
+						currentChild.nodeValue = result;
+					} else {
+						start.after(result);
+					}
+				} else {
+					truncate(currentChild, end);
+				}
+			},
+			startRef,
+			endRef
+		);
 	};
 }
 
