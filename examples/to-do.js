@@ -1,4 +1,16 @@
-import {html, render, effect, watch, each, include, text} from "../lib.js";
+import {
+	tags,
+	render,
+	effect,
+	watch,
+	each,
+	include,
+	text,
+	attr,
+} from "../lib.js";
+
+let {h1, input, label, ol, li, button, footer, div} = tags.html;
+let {svg, title, path} = tags.svg;
 
 export default function todoApp(target) {
 	let state = watch(
@@ -35,13 +47,14 @@ export default function todoApp(target) {
 	});
 
 	render(
-		html`<h1 class="title">To Do List</h1>
-			<input
-				class="show-done"
-				id="show-done"
-				type="checkbox"
-				checked=${() => state.showDone}
-				onchange=${(e) => {
+		[
+			h1({className: "title"}, "To Do List"),
+			input({
+				className: "show-done",
+				id: "show-done",
+				type: "checkbox",
+				checked: () => state.showDone,
+				onChange: (e) => {
 					let show = e.target.checked;
 
 					for (let item of state.list) {
@@ -52,12 +65,13 @@ export default function todoApp(target) {
 					}
 
 					state.showDone = show;
-				}} />
-			<label for="show-done">Show done</label>
-			<input
-				class="input-text"
-				placeholder="What do you have to do?"
-				onkeypress=${(e) => {
+				},
+			}),
+			label({htmlFor: "show-done"}, "Show done"),
+			input({
+				className: "input-text",
+				placeholder: "What do you have to do?",
+				onKeypress: (e) => {
 					if (e.keyCode === 13) {
 						e.preventDefault();
 
@@ -78,14 +92,16 @@ export default function todoApp(target) {
 
 						e.target.value = "";
 					}
-				}} />
-			<ol class="list">
-				${each(state.list, (view) => {
+				},
+			}),
+			ol(
+				{className: "list"},
+				each(state.list, (view) => {
 					if (!state.showDone && view.item.isDone && !view.item.isLeaving) {
 						return null;
 					}
 
-					let classes = () => {
+					let className = () => {
 						let list = ["item"];
 
 						if (view.item.isDone) {
@@ -107,30 +123,30 @@ export default function todoApp(target) {
 						return list.join(" ");
 					};
 
-					return html`
-						<li
-							draggable="${() => (state.list.length > 1 ? "true" : null)}"
-							class="${classes}"
-							ondragstart=${(e) => {
+					return li(
+						{
+							className,
+							draggable: () => (state.list.length > 1 ? "true" : null),
+							onDragstart: (e) => {
 								meta.dragItem = view.item;
 
 								e.dataTransfer.effectAllowed = "move";
-							}}
-							ondragend=${() => {
+							},
+							onDragend: () => {
 								meta.dragItem = null;
-							}}
-							ondragenter=${() => {
+							},
+							onDragenter: () => {
 								if (meta.dragItem != null) {
 									let from = state.list.findIndex((t) => t === meta.dragItem);
 
 									state.list.splice(from, 1);
 									state.list.splice(view.index, 0, meta.dragItem);
 								}
-							}}
-							ondragover=${preventDefault}
-							ondragleave=${preventDefault}
-							ondrop=${preventDefault}
-							onanimationend=${() => {
+							},
+							onDragover: preventDefault,
+							onDragleave: preventDefault,
+							onDrop: preventDefault,
+							onAnimationend: () => {
 								view.item.isLeaving = false;
 								view.item.isEntering = false;
 
@@ -140,80 +156,93 @@ export default function todoApp(target) {
 										1
 									);
 								}
-							}}>
-							<input
-								type="checkbox"
-								id="item-${() => view.index}"
-								checked=${() => view.item.isDone}
-								onchange=${() => {
-									if (!state.showDone && view.item.isDone) {
-										view.item.isLeaving = true;
-									}
+							},
+						},
+						input({
+							type: "checkbox",
+							id: () => `item-${view.index}`,
+							checked: () => view.item.isDone,
+							onChange: () => {
+								if (!state.showDone && view.item.isDone) {
+									view.item.isLeaving = true;
+								}
 
-									view.item.isDone = !view.item.isDone;
-								}} />
-							<label for="item-${() => view.index}">
-								${text(() => view.item.text)}
-							</label>
-							<button
-								type="button"
-								class="delete"
-								onclick=${() => {
+								view.item.isDone = !view.item.isDone;
+							},
+						}),
+						label(
+							{htmlFor: () => `item-${view.index}`},
+							text(() => view.item.text)
+						),
+						button(
+							{
+								type: "button",
+								className: "delete",
+								onClick: () => {
 									view.item.isLeaving = true;
 									view.item.isDeleted = true;
-								}}>
-								<svg viewBox="0 0 16 16">
-									<title>Delete</title>
-									<path
-										d="M4 1 L8 5 L12 1 L15 4 L11 8 L15 12 L12 15 L8 11 L4 15 L1 12 L5 8 L1 4 Z" />
-								</svg>
-							</button>
-						</li>
-					`;
-				})}
-			</ol>
-			${include(() =>
+								},
+							},
+							svg(
+								{viewBox: attr("0 0 16 16")},
+								title({}, "Delete"),
+								path({
+									d: attr(
+										"M4 1 L8 5 L12 1 L15 4 L11 8 L15 12 L12 15 L8 11 L4 15 L1 12 L5 8 L1 4 Z"
+									),
+								})
+							)
+						)
+					);
+				})
+			),
+			include(() =>
 				meta.hasItems
-					? html`<footer class="footer">
-							<div>
-								${text(() => {
+					? footer(
+							{className: "footer"},
+							div(
+								{},
+								text(() => {
 									let doneCount = state.list.filter(
 										(item) => item.isDone
 									).length;
 									let totalCount = state.list.length;
 
-									return `${doneCount} of ${totalCount}`;
-								})}
-								Done
-							</div>
-							${include(() => {
+									return `${doneCount} of ${totalCount} `;
+								}),
+								" Done"
+							),
+							include(() => {
 								if (!meta.hasDone) {
 									return null;
 								}
 
-								return html`<button
-									type="button"
-									class="clear-done"
-									onclick=${() => {
-										for (let i = state.list.length - 1; i >= 0; i--) {
-											let item = state.list[i];
+								return button(
+									{
+										type: "button",
+										className: "clear-done",
+										onClick: () => {
+											for (let i = state.list.length - 1; i >= 0; i--) {
+												let item = state.list[i];
 
-											if (item.isDone) {
-												if (state.showDone) {
-													item.isLeaving = true;
-													item.isDeleted = true;
-												} else {
-													state.list.splice(i, 1);
+												if (item.isDone) {
+													if (state.showDone) {
+														item.isLeaving = true;
+														item.isDeleted = true;
+													} else {
+														state.list.splice(i, 1);
+													}
 												}
 											}
-										}
-									}}>
-									Clear Done
-								</button>`;
-							})}
-					  </footer>`
+										},
+									},
+									"Clear Done"
+								);
+							})
+					  )
 					: null
-			)}`,
+			),
+		],
 		target
 	);
 

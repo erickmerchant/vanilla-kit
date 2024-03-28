@@ -1,4 +1,6 @@
-import {html, render, watch, text} from "../lib.js";
+import {tags, render, watch, text} from "../lib.js";
+
+let {div, button} = tags.html;
 
 const PLAY_STATES = {
 	PLAYING: 0,
@@ -35,81 +37,92 @@ export default function mineSweeper({height, width, mineCount}, target) {
 	}
 
 	render(
-		html`
-			<div class="info-panel">
-				<div class="flag-count">
-					<div>🚩</div>
-					${text(() => state.flagCount)}
-				</div>
-				<div aria-live="polite">
-					${text(() => ["", "💀", "🎉"][state.playState])}
-				</div>
-				<div class="time">
-					<div>⏱️</div>
-					${text(() => state.time)}
-				</div>
-			</div>
-			<div
-				class="board"
-				aria-row-count="${height}"
-				aria-col-count="${width}"
-				role="grid">
-				${range(height).map(
-					(y) => html`
-						<div role="row">
-							${range(width).map((x) => {
-								let square = boardMap.get(`${x} ${y}`);
-								let classes = () => {
-									let list = [];
+		[
+			div(
+				{className: "info-panel"},
+				div(
+					{className: "flag-count"},
+					div({}, "🚩"),
+					text(() => state.flagCount)
+				),
+				div(
+					{ariaLive: "polite"},
+					text(() => ["", "💀", "🎉"][state.playState])
+				),
+				div(
+					{className: "time"},
+					div({}, "⏱️"),
+					text(() => state.time)
+				)
+			),
+			div(
+				{
+					className: "board",
+					ariaRowCount: height,
+					ariaColCount: width,
+					role: "grid",
+				},
+				range(height).map((y) =>
+					div(
+						{role: "row"},
+						range(width).map((x) => {
+							let square = boardMap.get(`${x} ${y}`);
+							let className = () => {
+								let list = [];
 
-									if (square.isRevealed) {
-										list.push("revealed");
+								if (square.isRevealed) {
+									list.push("revealed");
+								}
+
+								if (square.isFlagged) {
+									list.push("flagged");
+								}
+
+								for (let i of range(8)) {
+									if (square.armedAdjacentCount === i) {
+										list.push(`armed-adjacent-count--${i}`);
 									}
+								}
 
-									if (square.isFlagged) {
-										list.push("flagged");
-									}
+								return list.join(" ");
+							};
 
-									for (let i of range(8)) {
-										if (square.armedAdjacentCount === i) {
-											list.push(`armed-adjacent-count--${i}`);
+							return div(
+								{
+									role: "gridcell",
+									ariaRowIndex: y + 1,
+									ariaColIndex: x + 1,
+								},
+								button(
+									{
+										className,
+										ariaLabel: () => (square.isRevealed ? null : "Hidden"),
+										type: "button",
+										style: `--column: ${x + 1}; --row: ${y + 1}`,
+										onClick: revealSquare(x, y),
+										onContextmenu: toggleFlag(x, y),
+										onKeydown: moveFocus(x, y),
+									},
+									text(() => {
+										if (!square.isRevealed) {
+											return square.isFlagged ? "🚩" : "";
 										}
-									}
 
-									return list.join(" ");
-								};
+										if (square.isFlagged && !square.isArmed) {
+											return "❌";
+										}
 
-								return html`
-											<div role="gridcell" aria-rowindex="${y + 1}" aria-colindex="${x + 1}">
-												<button
-													aria-label="${() => (square.isRevealed ? null : "Hidden")}"
-													type="button"
-													style="--column: ${x + 1}; --row: ${y + 1}"
-													class="${classes}"
-													onclick=${revealSquare(x, y)}
-													oncontextmenu=${toggleFlag(x, y)}
-													onkeydown=${moveFocus(x, y)}>
-													${text(() => {
-														if (!square.isRevealed) {
-															return square.isFlagged ? "🚩" : "";
-														}
-
-														if (square.isFlagged && !square.isArmed) {
-															return "❌";
-														}
-
-														return square.isArmed
-															? "💥"
-															: square.armedAdjacentCount || "";
-													})}
-											</div>
-										`;
-							})}
-						</div>
-					`
-				)}
-			</div>
-		`,
+										return square.isArmed
+											? "💥"
+											: square.armedAdjacentCount || "";
+									})
+								)
+							);
+						})
+					)
+				)
+			),
+		],
 		target
 	);
 

@@ -84,209 +84,96 @@ function set(o, key, value, r) {
 
 /* Declarative */
 
-let htmlMap = new WeakMap();
-let tokensRegex = /(?<!\\)(<!--|-->|<[\w-]+|<\/[\w-]+>|\/>|[\'\"=>])/;
+export let tags = {};
 
-export function html(strs, ...args) {
-	let node = htmlMap.get(strs);
-
-	if (!node) {
-		node = {nodes: []};
-
-		let stack = [node];
-		let mode = 0;
-		let comment = false;
-		let quote;
-		let attr;
-
-		for (let token of tokenize(...strs)) {
-			let {nodes, attrs} = stack[0];
-			let dynamic = false;
-
-			if (typeof token === "number") {
-				dynamic = true;
-			} else if (!token.trim()) {
-				continue;
-			}
-
-			if (comment) {
-				if (token === "-->") {
-					comment = false;
-				}
-			} else if (mode == 0) {
-				if (token === "<!--") {
-					comment = true;
-				} else if (token.startsWith?.("</")) {
-					let item;
-					let name = token.slice(2, -1);
-
-					do {
-						item = stack.shift();
-					} while (item.name !== name);
-				} else if (token.startsWith?.("<")) {
-					mode = 1;
-
-					stack.unshift({
-						name: token.slice(1),
-						attrs: [],
-						nodes: [],
-						root: stack.length === 1,
-					});
-
-					nodes.push(stack[0]);
-				} else {
-					nodes.push(token);
-				}
-			} else if (mode === 1) {
-				if (token === ">") {
-					mode = 0;
-				} else if (token === "/>") {
-					mode = 0;
-
-					stack.shift();
-				} else if (token === "=") {
-					mode = 2;
-				} else {
-					for (let name of token.trim().split(/\s+/)) {
-						attr = {name, value: true};
-
-						attrs.push(attr);
-					}
-				}
-			} else if (mode === 2) {
-				if (token === "'" || token === '"') {
-					attr.value = [];
-					quote = token;
-
-					mode = 3;
-				} else if (dynamic) {
-					attr.value = token;
-
-					mode = 1;
-				} else {
-					throw Error();
-				}
-			} else if (token === quote) {
-				mode = 1;
-
-				quote = null;
-			} else {
-				attr.value.push(token);
-			}
+for (let [k, namespace] of [
+	["html", "http://www.w3.org/1999/xhtml"],
+	["svg", "http://www.w3.org/2000/svg"],
+]) {
+	tags[k] = new Proxy(
+		{},
+		{
+			get(_, key) {
+				return (props, ...children) => ({
+					name: key,
+					namespace,
+					props,
+					children: children.flat(Infinity),
+				});
+			},
 		}
-
-		htmlMap.set(strs, node);
-	}
-
-	return {node, args};
-}
-
-function* tokenize(...strs) {
-	for (let i = 0; i < strs.length; i++) {
-		yield* strs[i].split(tokensRegex);
-
-		if (i < strs.length - 1) {
-			yield i;
-		}
-	}
+	);
 }
 
 /* Rendering */
 
-export function render(
-	{node, args},
-	element,
-	namespace = "http://www.w3.org/1999/xhtml"
-) {
-	let elementRef = new WeakRef(element);
+let attrs = new WeakMap();
+
+export function attr(value) {
+	let symbol = Symbol();
+
+	attrs.set(symbol, value);
+
+	return symbol;
+}
+
+export function render(nodes, element) {
 	let document = element.ownerDocument;
 
-	for (let {name, value} of node.attrs ?? []) {
-		if (typeof value === "number") {
-			if (name.startsWith("on")) {
-				name = name.slice(2);
+	nodes = [].concat(nodes).flat(Infinity);
 
-				element.addEventListener(name, ...[].concat(args[value]));
-			} else {
-				mutationEffect((element) => {
-					let current = callOrReturn(args[value]);
+	for (let node of nodes) {
+		if (node == null) continue;
 
-					if (element[name] !== current) {
-						element[name] = current;
-					}
-				}, elementRef);
-			}
-		} else {
-			mutationEffect((element) => {
-				let current = null;
-
-				for (let v of value) {
-					if (typeof v === "number") {
-						v = callOrReturn(args[v]);
-					}
-
-					if (v == null) {
-						continue;
-					}
-
-					current ??= "";
-
-					current += v;
-				}
-
-				if (current !== null) {
-					element.setAttribute(name, current);
-				} else {
-					element.removeAttribute(name);
-				}
-			}, elementRef);
-		}
-	}
-
-	for (let subNode of walk({node, args})) {
-		if (subNode == null) continue;
-
-		if (typeof subNode === "string") {
-			element.append(subNode);
-		} else if (typeof subNode === "function") {
+		if (typeof node === "string") {
+			element.append(node);
+		} else if (typeof node === "function") {
 			let start = document.createComment("");
 			let end = document.createComment("");
 
 			element.append(start, end);
 
-			mutationEffect(subNode, new WeakRef(start), new WeakRef(end), namespace);
+			mutationEffect(node, new WeakRef(start), new WeakRef(end));
 		} else {
-			let subNamespace =
-				subNode.node.name === "svg" ? "http://www.w3.org/2000/svg" : namespace;
-			let newChild = document.createElementNS(subNamespace, subNode.node.name);
+			let subElement = document.createElementNS(node.namespace, node.name);
+			let subElementRef = new WeakRef(subElement);
 
-			element.append(newChild);
+			for (let [name, value] of Object.entries(node.props)) {
+				if (typeof value === "function" && name.startsWith("on")) {
+					name = name.slice(2).toLowerCase();
 
-			render(subNode, newChild, subNamespace);
-		}
-	}
-}
+					subElement.addEventListener(name, ...[].concat(value));
+				} else {
+					mutationEffect((subElement) => {
+						let isAttr = typeof value === "symbol" && attrs.has(value);
+						let current = value;
 
-function* walk({node, args}) {
-	for (let n of node.nodes) {
-		if (typeof n === "number") {
-			let values = [].concat(args[n]);
+						if (isAttr) {
+							current = attrs.get(current);
+						}
 
-			for (let value of values) {
-				if (value != null) {
-					if (typeof value === "function") {
-						yield value;
-					} else if (value.node) {
-						yield* walk(value);
-					} else {
-						yield String(value);
-					}
+						current = callOrReturn(current);
+
+						if (isAttr) {
+							if (current == null) {
+								subElement.removeAttribute(name);
+							} else if (current === true || current === false) {
+								subElement.toggleAttribute(name, current);
+							} else {
+								subElement.setAttribute(name, current);
+							}
+						} else {
+							if (subElement[name] !== current) {
+								subElement[name] = current;
+							}
+						}
+					}, subElementRef);
 				}
 			}
-		} else if (n.nodes) {
-			yield {node: n, args};
-		} else {
-			yield String(n);
+
+			render(node.children, subElement);
+
+			element.append(subElement);
 		}
 	}
 }
@@ -296,7 +183,7 @@ function* walk({node, args}) {
 export function each(list, callback) {
 	let views = [];
 
-	return (_, end, namespace) => {
+	return (_, end) => {
 		let index = 0;
 
 		for (; index < list.length; index++) {
@@ -318,7 +205,7 @@ export function each(list, callback) {
 					return callback(d);
 				});
 
-				mutationEffect(inc, s, e, namespace);
+				mutationEffect(inc, s, e);
 
 				views.push([s, d]);
 			} else {
@@ -347,21 +234,21 @@ export function each(list, callback) {
 export function include(callback) {
 	let prev = null;
 
-	return (start, end, namespace) => {
+	return (start, end) => {
 		let currentChild = start.nextSibling;
 
 		let current = callback();
 
 		if (current == null && prev !== current) {
 			truncate(currentChild, end);
-		} else if (current?.node != null) {
-			if (prev?.node === current?.node) return;
+		} else if (typeof current === "object") {
+			if (prev === current) return;
 
 			truncate(currentChild, end);
 
 			let fragment = new DocumentFragment();
 
-			render(current, fragment, namespace);
+			render(current, fragment);
 
 			start.after(fragment);
 		} else {
