@@ -89,17 +89,19 @@ export default function mineSweeper({height, width, mineCount}, target) {
 													onclick=${revealSquare(x, y)}
 													oncontextmenu=${toggleFlag(x, y)}
 													onkeydown=${moveFocus(x, y)}>
-													${text(() =>
-														!square.isRevealed
-															? square.isFlagged
-																? "🚩"
-																: ""
-															: square.isFlagged && !square.isArmed
-															? "❌"
-															: square.isArmed
+													${text(() => {
+														if (!square.isRevealed) {
+															return square.isFlagged ? "🚩" : "";
+														}
+
+														if (square.isFlagged && !square.isArmed) {
+															return "❌";
+														}
+
+														return square.isArmed
 															? "💥"
-															: square.armedAdjacentCount || ""
-													)}
+															: square.armedAdjacentCount || "";
+													})}
 											</div>
 										`;
 							})}

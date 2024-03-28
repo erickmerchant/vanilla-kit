@@ -1,4 +1,4 @@
-import {html, render, effect, watch, each, text} from "../lib.js";
+import {html, render, effect, watch, each, include, text} from "../lib.js";
 
 export default function todoApp(target) {
 	let state = watch(
@@ -7,11 +7,22 @@ export default function todoApp(target) {
 			list: [],
 		}
 	);
-	let dragState = watch({
-		item: null,
-	});
 
 	state.list = watch(state.list.map((item) => watch(item)));
+
+	let meta = watch({
+		dragItem: null,
+		hasItems: false,
+		hasDone: false,
+	});
+
+	effect(() => {
+		meta.hasItems = state.list.length > 0;
+	});
+
+	effect(() => {
+		meta.hasDone = state.list.find((item) => item.isDone) != null;
+	});
 
 	document.body.addEventListener("dragover", preventDragAway);
 
@@ -69,111 +80,149 @@ export default function todoApp(target) {
 					}
 				}} />
 			<ol class="list">
-				${each(state.list, (item) => {
-					if (!state.showDone && item.isDone && !item.isLeaving) {
+				${each(state.list, (view) => {
+					if (!state.showDone && view.item.isDone && !view.item.isLeaving) {
 						return null;
 					}
 
-					return liView;
-				})}
-			</ol>`,
-		target
-	);
+					let classes = () => {
+						let list = ["item"];
 
-	function liView(view) {
-		let classes = () => {
-			let list = ["item"];
-
-			if (view.item.isDone) {
-				list.push("done");
-			}
-
-			if (view.item.isLeaving) {
-				list.push("leaving");
-			}
-
-			if (view.item.isEntering) {
-				list.push("entering");
-			}
-
-			if (dragState.item === view.item) {
-				list.push("dragging");
-			}
-
-			return list.join(" ");
-		};
-
-		return html`
-			<li
-				draggable="true"
-				class="${classes}"
-				ondragstart=${(e) => {
-					dragState.item = view.item;
-
-					e.dataTransfer.effectAllowed = "move";
-				}}
-				ondragend=${() => {
-					dragState.item = null;
-				}}
-				ondragenter=${() => {
-					if (dragState.item != null) {
-						let from = state.list.findIndex((t) => t === dragState.item);
-
-						state.list.splice(from, 1);
-						state.list.splice(view.index, 0, dragState.item);
-					}
-				}}
-				ondragover=${preventDefault}
-				ondragleave=${preventDefault}
-				ondrop=${preventDefault}
-				onanimationend=${() => {
-					view.item.isLeaving = false;
-					view.item.isEntering = false;
-
-					if (view.item.isDeleted) {
-						state.list.splice(
-							state.list.findIndex((item) => item === view.item),
-							1
-						);
-					}
-				}}>
-				<input
-					type="checkbox"
-					id="item-${() => view.index}"
-					checked=${() => view.item.isDone}
-					onchange=${() => {
-						if (!state.showDone && view.item.isDone) {
-							view.item.isLeaving = true;
+						if (view.item.isDone) {
+							list.push("done");
 						}
 
-						view.item.isDone = !view.item.isDone;
-					}} />
-				<label for="item-${() => view.index}">
-					${text(() => view.item.text)}
-				</label>
-				<button
-					type="button"
-					class="delete"
-					onclick=${() => {
-						view.item.isLeaving = true;
-						view.item.isDeleted = true;
-					}}>
-					<svg viewBox="0 0 16 16">
-						<title>Delete</title>
-						<path
-							d="M4 1 L8 5 L12 1 L15 4 L11 8 L15 12 L12 15 L8 11 L4 15 L1 12 L5 8 L1 4 Z" />
-					</svg>
-				</button>
-			</li>
-		`;
-	}
+						if (view.item.isLeaving) {
+							list.push("leaving");
+						}
+
+						if (view.item.isEntering) {
+							list.push("entering");
+						}
+
+						if (meta.dragItem === view.item) {
+							list.push("dragging");
+						}
+
+						return list.join(" ");
+					};
+
+					return html`
+						<li
+							draggable="${() => (state.list.length > 1 ? "true" : null)}"
+							class="${classes}"
+							ondragstart=${(e) => {
+								meta.dragItem = view.item;
+
+								e.dataTransfer.effectAllowed = "move";
+							}}
+							ondragend=${() => {
+								meta.dragItem = null;
+							}}
+							ondragenter=${() => {
+								if (meta.dragItem != null) {
+									let from = state.list.findIndex((t) => t === meta.dragItem);
+
+									state.list.splice(from, 1);
+									state.list.splice(view.index, 0, meta.dragItem);
+								}
+							}}
+							ondragover=${preventDefault}
+							ondragleave=${preventDefault}
+							ondrop=${preventDefault}
+							onanimationend=${() => {
+								view.item.isLeaving = false;
+								view.item.isEntering = false;
+
+								if (view.item.isDeleted) {
+									state.list.splice(
+										state.list.findIndex((item) => item === view.item),
+										1
+									);
+								}
+							}}>
+							<input
+								type="checkbox"
+								id="item-${() => view.index}"
+								checked=${() => view.item.isDone}
+								onchange=${() => {
+									if (!state.showDone && view.item.isDone) {
+										view.item.isLeaving = true;
+									}
+
+									view.item.isDone = !view.item.isDone;
+								}} />
+							<label for="item-${() => view.index}">
+								${text(() => view.item.text)}
+							</label>
+							<button
+								type="button"
+								class="delete"
+								onclick=${() => {
+									view.item.isLeaving = true;
+									view.item.isDeleted = true;
+								}}>
+								<svg viewBox="0 0 16 16">
+									<title>Delete</title>
+									<path
+										d="M4 1 L8 5 L12 1 L15 4 L11 8 L15 12 L12 15 L8 11 L4 15 L1 12 L5 8 L1 4 Z" />
+								</svg>
+							</button>
+						</li>
+					`;
+				})}
+			</ol>
+			${include(() =>
+				meta.hasItems
+					? html`<footer class="footer">
+							<div>
+								${text(() => {
+									let doneCount = state.list.filter(
+										(item) => item.isDone
+									).length;
+									let totalCount = state.list.length;
+
+									return `${doneCount} of ${totalCount}`;
+								})}
+								Done
+							</div>
+							${include(() => {
+								if (!meta.hasDone) {
+									return null;
+								}
+
+								return html`<button
+									type="button"
+									class="clear-done"
+									onclick=${() => {
+										for (let i = state.list.length - 1; i >= 0; i--) {
+											let item = state.list[i];
+
+											if (item.isDone) {
+												if (state.showDone) {
+													item.isLeaving = true;
+													item.isDeleted = true;
+												} else {
+													state.list.splice(i, 1);
+												}
+											}
+										}
+									}}>
+									Clear Done
+								</button>`;
+							})}
+					  </footer>`
+					: null
+			)}`,
+		target
+	);
 
 	function preventDefault(e) {
 		e.preventDefault();
 	}
 
 	function preventDragAway(e) {
-		if (dragState.item != null) {
+		if (meta.dragItem != null) {
 			e.preventDefault();
 		}
 	}
