@@ -1,13 +1,4 @@
-import {
-	tags,
-	render,
-	effect,
-	watch,
-	each,
-	include,
-	text,
-	attr,
-} from "../lib.js";
+import {tags, render, effect, watch, each, text, include} from "../lib.js";
 
 let {h1, input, label, ol, li, button, footer, div} = tags.html;
 let {svg, title, path} = tags.svg;
@@ -48,13 +39,13 @@ export default function todoApp(target) {
 
 	render(
 		[
-			h1({className: "title"}, "To Do List"),
-			input({
-				className: "show-done",
-				id: "show-done",
-				type: "checkbox",
-				checked: () => state.showDone,
-				onChange: (e) => {
+			h1().attr("class", "title").text("To Do List"),
+			input()
+				.attr("class", "show-done")
+				.attr("id", "show-done")
+				.attr("type", "checkbox")
+				.prop("checked", () => state.showDone)
+				.on("change", (e) => {
 					let show = e.target.checked;
 
 					for (let item of state.list) {
@@ -65,13 +56,12 @@ export default function todoApp(target) {
 					}
 
 					state.showDone = show;
-				},
-			}),
-			label({htmlFor: "show-done"}, "Show done"),
-			input({
-				className: "input-text",
-				placeholder: "What do you have to do?",
-				onKeypress: (e) => {
+				}),
+			label().attr("for", "show-done").text("Show Done"),
+			input()
+				.attr("class", "input-text")
+				.attr("placeholder", "What do you have to do?")
+				.on("keypress", (e) => {
 					if (e.keyCode === 13) {
 						e.preventDefault();
 
@@ -92,61 +82,58 @@ export default function todoApp(target) {
 
 						e.target.value = "";
 					}
-				},
-			}),
-			ol(
-				{className: "list"},
-				each(state.list, (view) => {
-					if (!state.showDone && view.item.isDone && !view.item.isLeaving) {
-						return null;
-					}
-
-					let className = () => {
-						let list = ["item"];
-
-						if (view.item.isDone) {
-							list.push("done");
+				}),
+			ol()
+				.attr("class", "list")
+				.append(
+					each(state.list, (view) => {
+						if (!state.showDone && view.item.isDone && !view.item.isLeaving) {
+							return null;
 						}
 
-						if (view.item.isLeaving) {
-							list.push("leaving");
-						}
+						let className = () => {
+							let list = ["item"];
 
-						if (view.item.isEntering) {
-							list.push("entering");
-						}
+							if (view.item.isDone) {
+								list.push("done");
+							}
 
-						if (meta.dragItem === view.item) {
-							list.push("dragging");
-						}
+							if (view.item.isLeaving) {
+								list.push("leaving");
+							}
 
-						return list.join(" ");
-					};
+							if (view.item.isEntering) {
+								list.push("entering");
+							}
 
-					return li(
-						{
-							className,
-							draggable: () => (state.list.length > 1 ? "true" : null),
-							onDragstart: (e) => {
+							if (meta.dragItem === view.item) {
+								list.push("dragging");
+							}
+
+							return list.join(" ");
+						};
+
+						return li()
+							.attr("class", className)
+							.attr("draggable", () => (state.list.length > 1 ? "true" : null))
+							.on("dragstart", (e) => {
 								meta.dragItem = view.item;
 
 								e.dataTransfer.effectAllowed = "move";
-							},
-							onDragend: () => {
+							})
+							.on("dragend", () => {
 								meta.dragItem = null;
-							},
-							onDragenter: () => {
+							})
+							.on("dragenter", () => {
 								if (meta.dragItem != null) {
 									let from = state.list.findIndex((t) => t === meta.dragItem);
 
 									state.list.splice(from, 1);
 									state.list.splice(view.index, 0, meta.dragItem);
 								}
-							},
-							onDragover: preventDefault,
-							onDragleave: preventDefault,
-							onDrop: preventDefault,
-							onAnimationend: () => {
+							})
+							.on(["dragover", "dragleave", "drop"], preventDefault)
+							.on("animationend", () => {
 								view.item.isLeaving = false;
 								view.item.isEntering = false;
 
@@ -156,72 +143,68 @@ export default function todoApp(target) {
 										1
 									);
 								}
-							},
-						},
-						input({
-							type: "checkbox",
-							id: () => `item-${view.index}`,
-							checked: () => view.item.isDone,
-							onChange: () => {
-								if (!state.showDone && view.item.isDone) {
-									view.item.isLeaving = true;
-								}
+							})
+							.append(
+								input()
+									.attr("type", "checkbox")
+									.attr("id", () => `item-${view.index}`)
+									.prop("checked", () => view.item.isDone)
+									.on("change", () => {
+										if (!state.showDone && view.item.isDone) {
+											view.item.isLeaving = true;
+										}
 
-								view.item.isDone = !view.item.isDone;
-							},
-						}),
-						label(
-							{htmlFor: () => `item-${view.index}`},
-							text(() => view.item.text)
-						),
-						button(
-							{
-								type: "button",
-								className: "delete",
-								onClick: () => {
-									view.item.isLeaving = true;
-									view.item.isDeleted = true;
-								},
-							},
-							svg(
-								{viewBox: attr("0 0 16 16")},
-								title({}, "Delete"),
-								path({
-									d: attr(
-										"M4 1 L8 5 L12 1 L15 4 L11 8 L15 12 L12 15 L8 11 L4 15 L1 12 L5 8 L1 4 Z"
-									),
-								})
-							)
-						)
-					);
-				})
-			),
+										view.item.isDone = !view.item.isDone;
+									}),
+								label()
+									.attr("for", () => `item-${view.index}`)
+									.text(() => view.item.text),
+								button()
+									.attr("type", "button")
+									.attr("class", "delete")
+									.on("click", () => {
+										view.item.isLeaving = true;
+										view.item.isDeleted = true;
+									})
+									.append(
+										svg()
+											.attr("viewBox", "0 0 16 16")
+											.append(
+												title().text("Delete"),
+												path().attr(
+													"d",
+													"M4 1 L8 5 L12 1 L15 4 L11 8 L15 12 L12 15 L8 11 L4 15 L1 12 L5 8 L1 4 Z"
+												)
+											)
+									)
+							);
+					})
+				),
 			include(() =>
 				meta.hasItems
-					? footer(
-							{className: "footer"},
-							div(
-								{},
-								text(() => {
-									let doneCount = state.list.filter(
-										(item) => item.isDone
-									).length;
-									let totalCount = state.list.length;
+					? footer()
+							.attr("class", "footer")
+							.append(
+								div().append(
+									text(() => {
+										let doneCount = state.list.filter(
+											(item) => item.isDone
+										).length;
+										let totalCount = state.list.length;
 
-									return `${doneCount} of ${totalCount} `;
-								}),
-								" Done"
-							),
-							include(() => {
-								if (!meta.hasDone) {
-									return null;
-								}
+										return `${doneCount} of ${totalCount} `;
+									}),
+									" Done"
+								),
+								include(() => {
+									if (!meta.hasDone) {
+										return null;
+									}
 
-								return button(
-									{
-										type: "button",
-										className: "clear-done",
-										onClick: () => {
+									return button()
+										.attr("type", "button")
+										.attr("class", "clear-done")
+										.on("click", () => {
 											for (let i = state.list.length - 1; i >= 0; i--) {
 												let item = state.list[i];
 
@@ -234,12 +217,10 @@ export default function todoApp(target) {
 													}
 												}
 											}
-										},
-									},
-									"Clear Done"
-								);
-							})
-					  )
+										})
+										.text("Clear Done");
+								})
+							)
 					: null
 			),
 		],

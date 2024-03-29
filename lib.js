@@ -78,38 +78,68 @@ function set(o, key, value, r) {
 
 /* Declarative */
 
+class Node {
+	name;
+	namespace;
+	attrs = {};
+	props = {};
+	events = [];
+	children = [];
+
+	constructor(name, namespace) {
+		this.name = name;
+		this.namespace = namespace;
+	}
+
+	attr(key, value) {
+		this.attrs[key] = value;
+
+		return this;
+	}
+
+	prop(key, value) {
+		this.props[key] = value;
+
+		return this;
+	}
+
+	on(key, value) {
+		this.events.push([key, value]);
+
+		return this;
+	}
+
+	append(...children) {
+		this.children.push(...children);
+
+		return this;
+	}
+
+	text(value) {
+		this.children = [text(value)];
+
+		return this;
+	}
+}
+
 export let tags = {};
 
 for (let [key, namespace] of [
 	["html", "http://www.w3.org/1999/xhtml"],
 	["svg", "http://www.w3.org/2000/svg"],
+	["math", "http://www.w3.org/1998/Math/MathML"],
 ]) {
 	tags[key] = new Proxy(
 		{},
 		{
 			get(_, name) {
-				return (props, ...children) => ({
-					name,
-					namespace,
-					props,
-					children: children.flat(Infinity),
-				});
+				return () => new Node(name, namespace);
 			},
 		}
 	);
 }
 
 /* Rendering */
-
-let attrs = new WeakMap();
-
-export function attr(value) {
-	let symbol = Symbol();
-
-	attrs.set(symbol, value);
-
-	return symbol;
-}
 
 export function render(nodes, element) {
 	let document = element.ownerDocument;
@@ -130,38 +160,36 @@ export function render(nodes, element) {
 		} else {
 			let childElement = document.createElementNS(node.namespace, node.name);
 
+			for (let [name, value] of Object.entries(node.attrs)) {
+				mutationEffect((subElement) => {
+					let currentValue = value;
+
+					currentValue = callOrReturn(currentValue);
+
+					if (currentValue == null) {
+						subElement.removeAttribute(name);
+					} else if (currentValue === true || currentValue === false) {
+						subElement.toggleAttribute(name, currentValue);
+					} else {
+						subElement.setAttribute(name, currentValue);
+					}
+				}, ...refAll(childElement));
+			}
+
 			for (let [name, value] of Object.entries(node.props)) {
-				if (typeof value === "function" && name.startsWith("on")) {
-					name = name.slice(2).toLowerCase();
+				mutationEffect((subElement) => {
+					let currentValue = value;
 
-					childElement.addEventListener(name, ...[].concat(value));
-				} else {
-					let isAttr = typeof value === "symbol" && attrs.has(value);
+					currentValue = callOrReturn(currentValue);
 
-					mutationEffect((subElement) => {
-						let currentValue = value;
+					if (subElement[name] !== currentValue) {
+						subElement[name] = currentValue;
+					}
+				}, ...refAll(childElement));
+			}
 
-						if (isAttr) {
-							currentValue = attrs.get(currentValue);
-						}
-
-						currentValue = callOrReturn(currentValue);
-
-						if (isAttr) {
-							if (currentValue == null) {
-								subElement.removeAttribute(name);
-							} else if (currentValue === true || currentValue === false) {
-								subElement.toggleAttribute(name, currentValue);
-							} else {
-								subElement.setAttribute(name, currentValue);
-							}
-						} else {
-							if (subElement[name] !== currentValue) {
-								subElement[name] = currentValue;
-							}
-						}
-					}, ...refAll(childElement));
-				}
+			for (let [name, value] of node.events) {
+				childElement.addEventListener(name, ...[].concat(value));
 			}
 
 			render(node.children, childElement);
@@ -250,11 +278,11 @@ export function include(callback) {
 	};
 }
 
-export function text(callback) {
+export function text(value) {
 	let initialized = false;
 
 	return (start) => {
-		let currentResult = String(callback() ?? "");
+		let currentResult = String(callOrReturn(value) ?? "");
 
 		if (!initialized) {
 			let text = document.createTextNode(currentResult);
