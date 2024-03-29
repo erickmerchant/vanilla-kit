@@ -2,13 +2,11 @@
 
 let currentCallback;
 let effectScheduled = false;
-let effectQueue = new Set();
+let effectQueue = [];
 let reads = new WeakMap();
 
 export function effect(...callbacks) {
-	for (let cb of callbacks) {
-		effectQueue.add(cb);
-	}
+	effectQueue.push(...callbacks);
 
 	if (!effectScheduled) {
 		effectScheduled = true;
@@ -16,12 +14,8 @@ export function effect(...callbacks) {
 		setTimeout(() => {
 			effectScheduled = false;
 
-			let callbacks = [...effectQueue.values()];
-
-			effectQueue.clear();
-
-			for (let cb of callbacks) {
-				immediateEffect(cb);
+			for (let callback of effectQueue.splice(0, Infinity)) {
+				immediateEffect(callback);
 			}
 		}, 0);
 	}
@@ -34,24 +28,24 @@ export function watch(object) {
 }
 
 function immediateEffect(callback) {
-	let prev = currentCallback;
+	let prevCallback = currentCallback;
 
 	currentCallback = callback;
 
 	callback();
 
-	currentCallback = prev;
+	currentCallback = prevCallback;
 }
 
 function mutationEffect(callback, ...refs) {
 	immediateEffect(() => {
-		let args = refs.map((ref) => (ref.deref ? ref.deref() : ref));
+		let derefs = refs.map((ref) => (ref.deref ? ref.deref() : ref));
 
-		if (args.some((arg) => arg == null)) {
+		if (derefs.some((arg) => arg == null)) {
 			return;
 		}
 
-		callback(...args);
+		callback(...derefs);
 	});
 }
 
@@ -86,16 +80,16 @@ function set(o, key, value, r) {
 
 export let tags = {};
 
-for (let [k, namespace] of [
+for (let [key, namespace] of [
 	["html", "http://www.w3.org/1999/xhtml"],
 	["svg", "http://www.w3.org/2000/svg"],
 ]) {
-	tags[k] = new Proxy(
+	tags[key] = new Proxy(
 		{},
 		{
-			get(_, key) {
+			get(_, name) {
 				return (props, ...children) => ({
-					name: key,
+					name,
 					namespace,
 					props,
 					children: children.flat(Infinity),
@@ -128,52 +122,50 @@ export function render(nodes, element) {
 		if (typeof node === "string") {
 			element.append(node);
 		} else if (typeof node === "function") {
-			let start = document.createComment("");
-			let end = document.createComment("");
+			let [start, end] = getBounds();
 
 			element.append(start, end);
 
-			mutationEffect(node, new WeakRef(start), new WeakRef(end));
+			mutationEffect(node, ...refAll(start, end));
 		} else {
-			let subElement = document.createElementNS(node.namespace, node.name);
-			let subElementRef = new WeakRef(subElement);
+			let childElement = document.createElementNS(node.namespace, node.name);
 
 			for (let [name, value] of Object.entries(node.props)) {
 				if (typeof value === "function" && name.startsWith("on")) {
 					name = name.slice(2).toLowerCase();
 
-					subElement.addEventListener(name, ...[].concat(value));
+					childElement.addEventListener(name, ...[].concat(value));
 				} else {
+					let isAttr = typeof value === "symbol" && attrs.has(value);
 					mutationEffect((subElement) => {
-						let isAttr = typeof value === "symbol" && attrs.has(value);
-						let current = value;
+						let currentValue = value;
 
 						if (isAttr) {
-							current = attrs.get(current);
+							currentValue = attrs.get(currentValue);
 						}
 
-						current = callOrReturn(current);
+						currentValue = callOrReturn(currentValue);
 
 						if (isAttr) {
-							if (current == null) {
+							if (currentValue == null) {
 								subElement.removeAttribute(name);
-							} else if (current === true || current === false) {
-								subElement.toggleAttribute(name, current);
+							} else if (currentValue === true || currentValue === false) {
+								subElement.toggleAttribute(name, currentValue);
 							} else {
-								subElement.setAttribute(name, current);
+								subElement.setAttribute(name, currentValue);
 							}
 						} else {
-							if (subElement[name] !== current) {
-								subElement[name] = current;
+							if (subElement[name] !== currentValue) {
+								subElement[name] = currentValue;
 							}
 						}
-					}, subElementRef);
+					}, ...refAll(childElement));
 				}
 			}
 
-			render(node.children, subElement);
+			render(node.children, childElement);
 
-			element.append(subElement);
+			element.append(childElement);
 		}
 	}
 }
@@ -191,75 +183,72 @@ export function each(list, callback) {
 			let view = views[index];
 
 			if (!view) {
-				let s = document.createComment("");
-				let e = document.createComment("");
+				let bounds = getBounds();
 
-				end.before(s, e);
+				end.before(...bounds);
 
-				s = new WeakRef(s);
-				e = new WeakRef(e);
+				let refs = refAll(...bounds);
 
-				let d = watch({item, index});
+				let data = watch({item, index});
 
 				let inc = include(() => {
-					return callback(d);
+					return callback(data);
 				});
 
-				mutationEffect(inc, s, e);
+				mutationEffect(inc, ...refs);
 
-				views.push([s, d]);
+				views.push([refs[0], data]);
 			} else {
-				let [_, d] = view;
+				let [_, data] = view;
 
-				if (d.item !== item) {
-					d.item = item;
+				if (data.item !== item) {
+					data.item = item;
 				}
 
-				if (d.index !== index) {
-					d.index = index;
+				if (data.index !== index) {
+					data.index = index;
 				}
 			}
 		}
 
 		let currentChild = views[index]?.[0]?.deref();
 
-		if (currentChild) {
-			truncate(currentChild, end);
-		}
+		truncate(currentChild, end);
 
 		views.splice(index, Infinity);
 	};
 }
 
 export function include(callback) {
-	let prev = null;
+	let prevResult = null;
 
 	return (start, end) => {
 		let currentChild = start.nextSibling;
 
-		let current = callback();
+		let currentResult = callback();
+		let newChild;
 
-		if (current == null && prev !== current) {
-			truncate(currentChild, end);
-		} else if (typeof current === "object") {
-			if (prev === current) return;
+		if (currentResult == null && prevResult == null) {
+			return;
+		} else if (typeof currentResult === "object") {
+			if (prevResult === currentResult) return;
 
-			truncate(currentChild, end);
+			newChild = new DocumentFragment();
 
-			let fragment = new DocumentFragment();
-
-			render(current, fragment);
-
-			start.after(fragment);
+			render(currentResult, newChild);
 		} else {
-			if (prev === current) return;
+			if (prevResult === currentResult) return;
 
-			truncate(currentChild, end);
-
-			start.after(current);
+			newChild = currentResult;
 		}
 
-		prev = current;
+		truncate(currentChild, end);
+
+		if (newChild) {
+			start.after(newChild);
+		}
+
+		prevResult = currentResult;
 	};
 }
 
@@ -267,10 +256,10 @@ export function text(callback) {
 	let initialized = false;
 
 	return (start) => {
-		let current = String(callback() ?? "");
+		let currentResult = String(callback() ?? "");
 
 		if (!initialized) {
-			let text = document.createTextNode(current);
+			let text = document.createTextNode(currentResult);
 
 			start.after(text);
 
@@ -278,14 +267,22 @@ export function text(callback) {
 		} else {
 			let currentChild = start.nextSibling;
 
-			if (currentChild.nodeValue !== current) {
-				currentChild.nodeValue = current;
+			if (currentChild.nodeValue !== currentResult) {
+				currentChild.nodeValue = currentResult;
 			}
 		}
 	};
 }
 
 /* Utils */
+
+function getBounds() {
+	return [document.createComment(""), document.createComment("")];
+}
+
+function refAll(...args) {
+	return args.map((arg) => new WeakRef(arg));
+}
 
 function truncate(currentChild, end) {
 	while (currentChild) {
