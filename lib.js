@@ -82,6 +82,8 @@ class Node {
 	name;
 	namespace;
 	attrs = {};
+	_classes = {};
+	_styles = {};
 	props = {};
 	events = [];
 	children = [];
@@ -97,6 +99,38 @@ class Node {
 		return this;
 	}
 
+	classes(...values) {
+		values = values.flat(Infinity);
+
+		for (let v of values) {
+			if (typeof v === "string") {
+				this._classes[v] = true;
+			} else if (v != null) {
+				for (let [key, val] of Object.entries(v)) {
+					this._classes[key] = val;
+				}
+			}
+		}
+
+		return this;
+	}
+
+	styles(map) {
+		for (let [key, value] of Object.entries(map)) {
+			this._styles[key] = value;
+		}
+
+		return this;
+	}
+
+	data(map) {
+		for (let [key, value] of Object.entries(map)) {
+			this.attrs(`data-${key}`, value);
+		}
+
+		return this;
+	}
+
 	prop(key, value) {
 		this.props[key] = value;
 
@@ -104,7 +138,7 @@ class Node {
 	}
 
 	on(key, value) {
-		this.events.push([key, value]);
+		this.events.push(...[].concat(key).map((k) => [k, value]));
 
 		return this;
 	}
@@ -173,6 +207,26 @@ export function render(nodes, element) {
 					} else {
 						subElement.setAttribute(name, currentValue);
 					}
+				}, ...refAll(childElement));
+			}
+
+			for (let [name, value] of Object.entries(node._classes)) {
+				mutationEffect((subElement) => {
+					let currentValue = value;
+
+					currentValue = callOrReturn(currentValue);
+
+					subElement.classList.toggle(name, !!currentValue);
+				}, ...refAll(childElement));
+			}
+
+			for (let [name, value] of Object.entries(node._styles)) {
+				mutationEffect((subElement) => {
+					let currentValue = value;
+
+					currentValue = callOrReturn(currentValue);
+
+					subElement.style.setProperty(name, currentValue);
 				}, ...refAll(childElement));
 			}
 

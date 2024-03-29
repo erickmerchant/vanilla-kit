@@ -39,10 +39,10 @@ export default function mineSweeper({height, width, mineCount}, target) {
 	render(
 		[
 			div()
-				.attr("class", "info-panel")
+				.classes("info-panel")
 				.append(
 					div()
-						.attr("class", "flag-count")
+						.classes("flag-count")
 						.append(
 							div().text("🚩"),
 							text(() => state.flagCount)
@@ -51,14 +51,14 @@ export default function mineSweeper({height, width, mineCount}, target) {
 						.attr("aria-live", "polite")
 						.text(() => ["", "💀", "🎉"][state.playState]),
 					div()
-						.attr("class", "time")
+						.classes("time")
 						.append(
 							div().text("⏱️"),
 							text(() => state.time)
 						)
 				),
 			div()
-				.attr("class", "board")
+				.classes("board")
 				.attr("aria-rowcount", height)
 				.attr("aria-colcount", width)
 				.attr("role", "grid")
@@ -69,25 +69,6 @@ export default function mineSweeper({height, width, mineCount}, target) {
 							.append(
 								range(width).map((x) => {
 									let square = boardMap.get(`${x} ${y}`);
-									let className = () => {
-										let list = [];
-
-										if (square.isRevealed) {
-											list.push("revealed");
-										}
-
-										if (square.isFlagged) {
-											list.push("flagged");
-										}
-
-										for (let i of range(8)) {
-											if (square.armedAdjacentCount === i) {
-												list.push(`armed-adjacent-count--${i}`);
-											}
-										}
-
-										return list.join(" ");
-									};
 
 									return div()
 										.attr("role", "gridcell")
@@ -95,12 +76,23 @@ export default function mineSweeper({height, width, mineCount}, target) {
 										.attr("aria-colindex", x + 1)
 										.append(
 											button()
-												.attr("class", className)
+												.classes(
+													{
+														revealed: () => square.isRevealed,
+														flagged: () => square.isFlagged,
+													},
+													range(8).map((i) => {
+														return {
+															[`armed-adjacent-count--${i}`]: () =>
+																square.armedAdjacentCount === i,
+														};
+													})
+												)
 												.attr("aria-label", () =>
 													square.isRevealed ? null : "Hidden"
 												)
 												.attr("type", "button")
-												.attr("style", `--column: ${x + 1}; --row: ${y + 1}`)
+												.styles({"--column": x + 1, "--row": y + 1})
 												.on("click", revealSquare(x, y))
 												.on("contextmenu", toggleFlag(x, y))
 												.on("keydown", moveFocus(x, y))

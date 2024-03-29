@@ -39,9 +39,9 @@ export default function todoApp(target) {
 
 	render(
 		[
-			h1().attr("class", "title").text("To Do List"),
+			h1().classes("title").text("To Do List"),
 			input()
-				.attr("class", "show-done")
+				.classes("show-done")
 				.attr("id", "show-done")
 				.attr("type", "checkbox")
 				.prop("checked", () => state.showDone)
@@ -59,7 +59,7 @@ export default function todoApp(target) {
 				}),
 			label().attr("for", "show-done").text("Show Done"),
 			input()
-				.attr("class", "input-text")
+				.classes("input-text")
 				.attr("placeholder", "What do you have to do?")
 				.on("keypress", (e) => {
 					if (e.keyCode === 13) {
@@ -84,37 +84,20 @@ export default function todoApp(target) {
 					}
 				}),
 			ol()
-				.attr("class", "list")
+				.classes("list")
 				.append(
 					each(state.list, (view) => {
 						if (!state.showDone && view.item.isDone && !view.item.isLeaving) {
 							return null;
 						}
 
-						let className = () => {
-							let list = ["item"];
-
-							if (view.item.isDone) {
-								list.push("done");
-							}
-
-							if (view.item.isLeaving) {
-								list.push("leaving");
-							}
-
-							if (view.item.isEntering) {
-								list.push("entering");
-							}
-
-							if (meta.dragItem === view.item) {
-								list.push("dragging");
-							}
-
-							return list.join(" ");
-						};
-
 						return li()
-							.attr("class", className)
+							.classes("item", {
+								entering: () => view.item.isEntering,
+								leaving: () => view.item.isLeaving,
+								done: () => view.item.isDone,
+								dragging: () => meta.dragItem === view.item,
+							})
 							.attr("draggable", () => (state.list.length > 1 ? "true" : null))
 							.on("dragstart", (e) => {
 								meta.dragItem = view.item;
@@ -161,7 +144,7 @@ export default function todoApp(target) {
 									.text(() => view.item.text),
 								button()
 									.attr("type", "button")
-									.attr("class", "delete")
+									.classes("delete")
 									.on("click", () => {
 										view.item.isLeaving = true;
 										view.item.isDeleted = true;
@@ -183,7 +166,7 @@ export default function todoApp(target) {
 			include(() =>
 				meta.hasItems
 					? footer()
-							.attr("class", "footer")
+							.classes("footer")
 							.append(
 								div().append(
 									text(() => {
@@ -203,7 +186,7 @@ export default function todoApp(target) {
 
 									return button()
 										.attr("type", "button")
-										.attr("class", "clear-done")
+										.classes("clear-done")
 										.on("click", () => {
 											for (let i = state.list.length - 1; i >= 0; i--) {
 												let item = state.list[i];
