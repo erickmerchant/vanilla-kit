@@ -137,6 +137,7 @@ export function render(nodes, element) {
 					childElement.addEventListener(name, ...[].concat(value));
 				} else {
 					let isAttr = typeof value === "symbol" && attrs.has(value);
+
 					mutationEffect((subElement) => {
 						let currentValue = value;
 
@@ -188,9 +189,7 @@ export function each(list, callback) {
 				end.before(...bounds);
 
 				let refs = refAll(...bounds);
-
 				let data = watch({item, index});
-
 				let inc = include(() => {
 					return callback(data);
 				});
@@ -224,7 +223,6 @@ export function include(callback) {
 
 	return (start, end) => {
 		let currentChild = start.nextSibling;
-
 		let currentResult = callback();
 		let newChild;
 
