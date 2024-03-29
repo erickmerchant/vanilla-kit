@@ -152,11 +152,11 @@ export function render(nodes, element) {
 		if (typeof node === "string") {
 			element.append(node);
 		} else if (typeof node === "function") {
-			let [start, end] = getBounds();
+			let [start, end] = getBounds(document);
 
 			element.append(start, end);
 
-			mutationEffect(node, ...refAll(start, end));
+			mutationEffect(node, ...refAll(start, end, document));
 		} else {
 			let childElement = document.createElementNS(node.namespace, node.name);
 
@@ -204,7 +204,7 @@ export function render(nodes, element) {
 export function each(list, callback) {
 	let views = [];
 
-	return (_, end) => {
+	return (_, end, document) => {
 		let index = 0;
 
 		for (; index < list.length; index++) {
@@ -212,11 +212,11 @@ export function each(list, callback) {
 			let view = views[index];
 
 			if (!view) {
-				let bounds = getBounds();
+				let bounds = getBounds(document);
 
 				end.before(...bounds);
 
-				let refs = refAll(...bounds);
+				let refs = refAll(...bounds, document);
 				let data = watch({item, index});
 				let inc = include(() => {
 					return callback(data);
@@ -281,7 +281,7 @@ export function include(callback) {
 export function text(value) {
 	let initialized = false;
 
-	return (start) => {
+	return (start, _, document) => {
 		let currentResult = String(callOrReturn(value) ?? "");
 
 		if (!initialized) {
@@ -302,7 +302,7 @@ export function text(value) {
 
 /* Utils */
 
-function getBounds() {
+function getBounds(document) {
 	return [document.createComment(""), document.createComment("")];
 }
 
