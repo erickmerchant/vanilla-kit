@@ -27,10 +27,6 @@ function get(o, key, r) {
 }
 
 function set(o, key, value, r) {
-	if (value === o[key]) {
-		return true;
-	}
-
 	let callbacks = reads.get(o).get(key);
 
 	if (callbacks) {
@@ -84,20 +80,18 @@ function mutationEffect(callback, ...refs) {
 
 class Node {
 	constructor(name, namespace) {
-		this.state = {
-			name,
-			namespace,
-			attrs: {},
-			classes: {},
-			styles: {},
-			props: {},
-			events: [],
-			children: [],
-		};
+		this.name = name;
+		this.namespace = namespace;
+		this.attrs = {};
+		this._classes = {};
+		this._styles = {};
+		this.props = {};
+		this.events = [];
+		this.children = [];
 	}
 
 	attr(key, value) {
-		this.state.attrs[key] = value;
+		this.attrs[key] = value;
 
 		return this;
 	}
@@ -107,10 +101,10 @@ class Node {
 
 		for (let v of values) {
 			if (typeof v === "string") {
-				this.state.classes[v] = true;
+				this._classes[v] = true;
 			} else if (v != null) {
 				for (let [key, val] of Object.entries(v)) {
-					this.state.classes[key] = val;
+					this._classes[key] = val;
 				}
 			}
 		}
@@ -120,7 +114,7 @@ class Node {
 
 	styles(map) {
 		for (let [key, value] of Object.entries(map)) {
-			this.state.styles[key] = value;
+			this._styles[key] = value;
 		}
 
 		return this;
@@ -135,25 +129,25 @@ class Node {
 	}
 
 	prop(key, value) {
-		this.state.props[key] = value;
+		this.props[key] = value;
 
 		return this;
 	}
 
 	on(key, value) {
-		this.state.events.push(...[].concat(key).map((k) => [k, value]));
+		this.events.push(...[].concat(key).map((k) => [k, value]));
 
 		return this;
 	}
 
 	append(...children) {
-		this.state.children.push(...children);
+		this.children.push(...children);
 
 		return this;
 	}
 
 	text(value) {
-		this.state.children = [text(value)];
+		this.children = [text(value)];
 
 		return this;
 	}
@@ -161,12 +155,12 @@ class Node {
 
 export let h = {};
 
-for (let [key, namespace] of [
+for (let [id, namespace] of [
 	["html", "http://www.w3.org/1999/xhtml"],
 	["svg", "http://www.w3.org/2000/svg"],
 	["math", "http://www.w3.org/1998/Math/MathML"],
 ]) {
-	h[key] = new Proxy(
+	h[id] = new Proxy(
 		{},
 		{
 			get(_, name) {
@@ -195,12 +189,9 @@ export function render(nodes, element) {
 
 			mutationEffect(node, ...refAll(start, end, document));
 		} else {
-			let childElement = document.createElementNS(
-				node.state.namespace,
-				node.state.name
-			);
+			let childElement = document.createElementNS(node.namespace, node.name);
 
-			for (let [name, value] of Object.entries(node.state.attrs)) {
+			for (let [name, value] of Object.entries(node.attrs)) {
 				mutationEffect((subElement) => {
 					let currentValue = value;
 
@@ -216,7 +207,7 @@ export function render(nodes, element) {
 				}, ...refAll(childElement));
 			}
 
-			for (let [name, value] of Object.entries(node.state.classes)) {
+			for (let [name, value] of Object.entries(node._classes)) {
 				mutationEffect((subElement) => {
 					let currentValue = value;
 
@@ -226,7 +217,7 @@ export function render(nodes, element) {
 				}, ...refAll(childElement));
 			}
 
-			for (let [name, value] of Object.entries(node.state.styles)) {
+			for (let [name, value] of Object.entries(node._styles)) {
 				mutationEffect((subElement) => {
 					let currentValue = value;
 
@@ -236,7 +227,7 @@ export function render(nodes, element) {
 				}, ...refAll(childElement));
 			}
 
-			for (let [name, value] of Object.entries(node.state.props)) {
+			for (let [name, value] of Object.entries(node.props)) {
 				mutationEffect((subElement) => {
 					let currentValue = value;
 
@@ -248,11 +239,11 @@ export function render(nodes, element) {
 				}, ...refAll(childElement));
 			}
 
-			for (let [name, value] of node.state.events) {
+			for (let [name, value] of node.events) {
 				childElement.addEventListener(name, ...[].concat(value));
 			}
 
-			render(node.state.children, childElement);
+			render(node.children, childElement);
 
 			element.append(childElement);
 		}
@@ -278,9 +269,7 @@ export function each(list, callback) {
 
 				let refs = refAll(...bounds, document);
 				let data = watch({item, index});
-				let inc = include(() => {
-					return callback(data);
-				});
+				let inc = include(callback, data);
 
 				mutationEffect(inc, ...refs);
 
@@ -306,24 +295,33 @@ export function each(list, callback) {
 	};
 }
 
-export function include(callback) {
+export function include(callback, ...args) {
 	let prevResult = null;
 
 	return (start, end) => {
 		let currentChild = start.nextSibling;
-		let currentResult = callback();
+		let currentResult = callback(...args);
 		let newChild;
 
 		if (currentResult == null && prevResult == null) {
 			return;
-		} else if (typeof currentResult === "object") {
-			if (prevResult === currentResult) return;
+		} else if (
+			typeof currentResult === "object" ||
+			typeof currentResult === "function"
+		) {
+			if (prevResult === currentResult) {
+				return;
+			}
+
+			let unwrappedResult = callOrReturn(currentResult, ...args);
 
 			newChild = new DocumentFragment();
 
-			render(currentResult, newChild);
+			render(unwrappedResult, newChild);
 		} else {
-			if (prevResult === currentResult) return;
+			if (prevResult === currentResult) {
+				return;
+			}
 
 			newChild = currentResult;
 		}
@@ -384,6 +382,6 @@ function truncate(currentChild, end) {
 	}
 }
 
-function callOrReturn(value) {
-	return typeof value === "function" ? value() : value;
+function callOrReturn(value, ...args) {
+	return typeof value === "function" ? value(...args) : value;
 }
