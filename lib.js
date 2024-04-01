@@ -79,67 +79,14 @@ function mutationEffect(callback, ...refs) {
 /* Declarative */
 
 class Node {
-	attrs = {};
-	_classes = {};
-	_styles = {};
-	data = {};
-	props = {};
-	events = [];
+	static mixins = {};
+
 	children = [];
+	props = [];
 
 	constructor(name, namespace) {
 		this.name = name;
 		this.namespace = namespace;
-	}
-
-	attr(key, value) {
-		this.attrs[key] = value;
-
-		return this;
-	}
-
-	classes(...values) {
-		values = values.flat(Infinity);
-
-		for (let v of values) {
-			if (typeof v === "string") {
-				this._classes[v] = true;
-			} else if (v != null) {
-				for (let [key, val] of Object.entries(v)) {
-					this._classes[key] = val;
-				}
-			}
-		}
-
-		return this;
-	}
-
-	styles(map) {
-		for (let [key, value] of Object.entries(map)) {
-			this._styles[key] = value;
-		}
-
-		return this;
-	}
-
-	data(map) {
-		for (let [key, value] of Object.entries(map)) {
-			this.data[key] = value;
-		}
-
-		return this;
-	}
-
-	prop(key, value) {
-		this.props[key] = value;
-
-		return this;
-	}
-
-	on(key, value) {
-		this.events.push(...[].concat(key).map((k) => [k, value]));
-
-		return this;
 	}
 
 	append(...children) {
@@ -152,6 +99,18 @@ class Node {
 		this.children = [text(value)];
 
 		return this;
+	}
+}
+
+export function mixin(...mixins) {
+	for (let mixin of mixins) {
+		Node.prototype[mixin.name] = function (...args) {
+			this.props.push([mixin.name, ...args]);
+
+			return this;
+		};
+
+		Node.mixins[mixin.name] = mixin;
 	}
 }
 
@@ -171,101 +130,89 @@ export let html = h("html", "http://www.w3.org/1999/xhtml");
 export let svg = h("svg", "http://www.w3.org/2000/svg");
 export let math = h("math", "http://www.w3.org/1998/Math/MathML");
 
-/* Rendering */
+/* Mixins + Helpers */
 
-export function on(key, ...value) {
-	for (let k of [].concat(key)) {
-		document.addEventListener(k, ...value);
+export function attr(element, ...args) {
+	let [name, value] = args;
+
+	mutationEffect((element) => {
+		let currentValue = value;
+
+		currentValue = callOrReturn(currentValue);
+
+		if (currentValue == null) {
+			element.removeAttribute(name);
+		} else if (currentValue === true || currentValue === false) {
+			element.toggleAttribute(name, currentValue);
+		} else {
+			element.setAttribute(name, currentValue);
+		}
+	}, ...refAll(element));
+}
+
+export function prop(element, ...args) {
+	let [name, value] = args;
+
+	mutationEffect((element) => {
+		let currentValue = value;
+
+		currentValue = callOrReturn(currentValue);
+
+		if (element[name] !== currentValue) {
+			element[name] = currentValue;
+		}
+	}, ...refAll(element));
+}
+
+export function classes(element, ...args) {
+	args = args.flat(Infinity);
+
+	for (let arg of args) {
+		if (typeof arg === "string") {
+			element.classList.add(arg);
+		} else {
+			for (let [name, value] of Object.entries(arg)) {
+				mutationEffect((element) => {
+					let currentValue = value;
+
+					currentValue = callOrReturn(currentValue);
+
+					element.classList.toggle(name, !!currentValue);
+				}, ...refAll(element));
+			}
+		}
 	}
 }
 
-export function render(nodes, element) {
-	let document = element.ownerDocument;
+export function styles(element, styles) {
+	for (let [name, value] of Object.entries(styles)) {
+		mutationEffect((element) => {
+			let currentValue = value;
 
-	nodes = [].concat(nodes).flat(Infinity);
+			currentValue = callOrReturn(currentValue);
 
-	for (let node of nodes) {
-		if (node == null) continue;
+			element.style.setProperty(name, currentValue);
+		}, ...refAll(element));
+	}
+}
 
-		if (typeof node === "string") {
-			element.append(node);
-		} else if (typeof node === "function") {
-			let [start, end] = getStartAndEnd(document);
+export function data(element, data) {
+	for (let [name, value] of Object.entries(data)) {
+		mutationEffect((element) => {
+			let currentValue = value;
 
-			element.append(start, end);
+			currentValue = callOrReturn(currentValue);
 
-			mutationEffect(node, ...refAll(start, end, document));
-		} else {
-			let childElement = document.createElementNS(node.namespace, node.name);
-
-			for (let [name, value] of Object.entries(node.attrs)) {
-				mutationEffect((subElement) => {
-					let currentValue = value;
-
-					currentValue = callOrReturn(currentValue);
-
-					if (currentValue == null) {
-						subElement.removeAttribute(name);
-					} else if (currentValue === true || currentValue === false) {
-						subElement.toggleAttribute(name, currentValue);
-					} else {
-						subElement.setAttribute(name, currentValue);
-					}
-				}, ...refAll(childElement));
+			if (element.dataset[name] !== currentValue) {
+				element.dataset[name] = currentValue;
 			}
+		}, ...refAll(element));
+	}
+}
 
-			for (let [name, value] of Object.entries(node._classes)) {
-				mutationEffect((subElement) => {
-					let currentValue = value;
-
-					currentValue = callOrReturn(currentValue);
-
-					subElement.classList.toggle(name, !!currentValue);
-				}, ...refAll(childElement));
-			}
-
-			for (let [name, value] of Object.entries(node._styles)) {
-				mutationEffect((subElement) => {
-					let currentValue = value;
-
-					currentValue = callOrReturn(currentValue);
-
-					subElement.style.setProperty(name, currentValue);
-				}, ...refAll(childElement));
-			}
-
-			for (let [name, value] of Object.entries(node.data)) {
-				mutationEffect((subElement) => {
-					let currentValue = value;
-
-					currentValue = callOrReturn(currentValue);
-
-					if (subElement.dataset[name] !== currentValue) {
-						subElement.dataset[name] = currentValue;
-					}
-				}, ...refAll(childElement));
-			}
-
-			for (let [name, value] of Object.entries(node.props)) {
-				mutationEffect((subElement) => {
-					let currentValue = value;
-
-					currentValue = callOrReturn(currentValue);
-
-					if (subElement[name] !== currentValue) {
-						subElement[name] = currentValue;
-					}
-				}, ...refAll(childElement));
-			}
-
-			for (let [name, value] of node.events) {
-				childElement.addEventListener(name, ...[].concat(value));
-			}
-
-			render(node.children, childElement);
-
-			element.append(childElement);
-		}
+export function on(element, key, value) {
+	for (let k of [].concat(key)) {
+		element.addEventListener(k, ...[].concat(value));
 	}
 }
 
@@ -375,6 +322,38 @@ export function text(value) {
 			}
 		}
 	};
+}
+
+/* Rendering */
+
+export function render(nodes, element) {
+	let document = element.ownerDocument;
+
+	nodes = [].concat(nodes).flat(Infinity);
+
+	for (let node of nodes) {
+		if (node == null) continue;
+
+		if (typeof node === "string") {
+			element.append(node);
+		} else if (typeof node === "function") {
+			let [start, end] = getStartAndEnd(document);
+
+			element.append(start, end);
+
+			mutationEffect(node, ...refAll(start, end, document));
+		} else {
+			let childElement = document.createElementNS(node.namespace, node.name);
+
+			for (let [kind, ...args] of node.props) {
+				Node.mixins[kind](childElement, ...args);
+			}
+
+			render(node.children, childElement);
+
+			element.append(childElement);
+		}
+	}
 }
 
 /* Utils */

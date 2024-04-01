@@ -8,11 +8,17 @@ import {
 	text,
 	include,
 	on,
+	classes,
+	attr,
+	prop,
+	mixin,
 } from "../lib.js";
 
 let {h1, input, label, ol, li, button, footer, div} = html;
 
 let {title, path} = svg;
+
+mixin(on, classes, attr, prop);
 
 export default function todoApp(target) {
 	let todoView = watch(
@@ -46,7 +52,7 @@ export default function todoApp(target) {
 		todoView._hasDone = todoView.list.find((item) => item.isDone) != null;
 	});
 
-	on(["dragover", "dragleave", "drop"], preventDragAway);
+	on(document.body, ["dragover", "dragleave", "drop"], preventDragAway);
 
 	effect(() => {
 		localStorage.setItem(

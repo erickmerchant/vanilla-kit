@@ -1,6 +1,19 @@
-import {html, render, watch, text} from "../lib.js";
+import {
+	html,
+	render,
+	watch,
+	text,
+	attr,
+	prop,
+	classes,
+	styles,
+	on,
+	mixin,
+} from "../lib.js";
 
 let {div, button} = html;
+
+mixin(attr, prop, classes, styles, on);
 
 const PLAY_STATES = {
 	PLAYING: 0,
