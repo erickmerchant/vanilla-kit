@@ -79,15 +79,17 @@ function mutationEffect(callback, ...refs) {
 /* Declarative */
 
 class Node {
+	attrs = {};
+	_classes = {};
+	_styles = {};
+	data = {};
+	props = {};
+	events = [];
+	children = [];
+
 	constructor(name, namespace) {
 		this.name = name;
 		this.namespace = namespace;
-		this.attrs = {};
-		this._classes = {};
-		this._styles = {};
-		this.props = {};
-		this.events = [];
-		this.children = [];
 	}
 
 	attr(key, value) {
@@ -122,7 +124,7 @@ class Node {
 
 	data(map) {
 		for (let [key, value] of Object.entries(map)) {
-			this.attr(`data-${key}`, value);
+			this.data[key] = value;
 		}
 
 		return this;
@@ -153,24 +155,29 @@ class Node {
 	}
 }
 
-export let h = {};
+function h(name, namespace) {
+	let root = (n = name) => {
+		return new Node(n, namespace);
+	};
 
-for (let [id, namespace] of [
-	["html", "http://www.w3.org/1999/xhtml"],
-	["svg", "http://www.w3.org/2000/svg"],
-	["math", "http://www.w3.org/1998/Math/MathML"],
-]) {
-	h[id] = new Proxy(
-		{},
-		{
-			get(_, name) {
-				return () => new Node(name, namespace);
-			},
-		}
-	);
+	return new Proxy(root, {
+		get(_, name) {
+			return () => root(name);
+		},
+	});
 }
 
+export let html = h("html", "http://www.w3.org/1999/xhtml");
+export let svg = h("svg", "http://www.w3.org/2000/svg");
+export let math = h("math", "http://www.w3.org/1998/Math/MathML");
+
 /* Rendering */
+
+export function on(key, ...value) {
+	for (let k of [].concat(key)) {
+		document.addEventListener(k, ...value);
+	}
+}
 
 export function render(nodes, element) {
 	let document = element.ownerDocument;
@@ -183,7 +190,7 @@ export function render(nodes, element) {
 		if (typeof node === "string") {
 			element.append(node);
 		} else if (typeof node === "function") {
-			let [start, end] = getBounds(document);
+			let [start, end] = getStartAndEnd(document);
 
 			element.append(start, end);
 
@@ -227,6 +234,18 @@ export function render(nodes, element) {
 				}, ...refAll(childElement));
 			}
 
+			for (let [name, value] of Object.entries(node.data)) {
+				mutationEffect((subElement) => {
+					let currentValue = value;
+
+					currentValue = callOrReturn(currentValue);
+
+					if (subElement.dataset[name] !== currentValue) {
+						subElement.dataset[name] = currentValue;
+					}
+				}, ...refAll(childElement));
+			}
+
 			for (let [name, value] of Object.entries(node.props)) {
 				mutationEffect((subElement) => {
 					let currentValue = value;
@@ -263,11 +282,11 @@ export function each(list, callback) {
 			let view = views[index];
 
 			if (!view) {
-				let bounds = getBounds(document);
+				let startAndEnd = getStartAndEnd(document);
 
-				end.before(...bounds);
+				end.before(...startAndEnd);
 
-				let refs = refAll(...bounds, document);
+				let refs = refAll(...startAndEnd, document);
 				let data = watch({item, index});
 				let inc = include(callback, data);
 
@@ -360,7 +379,7 @@ export function text(value) {
 
 /* Utils */
 
-function getBounds(document) {
+function getStartAndEnd(document) {
 	return [document.createComment(""), document.createComment("")];
 }
 

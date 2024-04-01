@@ -1,6 +1,6 @@
-import {h, render, watch, text} from "../lib.js";
+import {html, render, watch, text} from "../lib.js";
 
-let {div, button} = h.html;
+let {div, button} = html;
 
 const PLAY_STATES = {
 	PLAYING: 0,

@@ -1,7 +1,18 @@
-import {h, render, effect, watch, each, text, include} from "../lib.js";
+import {
+	html,
+	svg,
+	render,
+	effect,
+	watch,
+	each,
+	text,
+	include,
+	on,
+} from "../lib.js";
 
-let {h1, input, label, ol, li, button, footer, div} = h.html;
-let {svg, title, path} = h.svg;
+let {h1, input, label, ol, li, button, footer, div} = html;
+
+let {title, path} = svg;
 
 export default function todoApp(target) {
 	let todoView = watch(
@@ -13,7 +24,7 @@ export default function todoApp(target) {
 				_hasItems: false,
 				_hasDone: false,
 			},
-			JSON.parse(localStorage.getItem("to-do-app"), (key, value) => {
+			JSON.parse(localStorage.getItem("to-do-app") ?? "", (key, value) => {
 				if (key === "list") {
 					return watch(
 						value.map((item) => {
@@ -23,7 +34,7 @@ export default function todoApp(target) {
 				}
 
 				return value;
-			}) ?? {}
+			})
 		)
 	);
 
@@ -35,11 +46,7 @@ export default function todoApp(target) {
 		todoView._hasDone = todoView.list.find((item) => item.isDone) != null;
 	});
 
-	document.body.addEventListener("dragover", preventDragAway);
-
-	document.body.addEventListener("dragleave", preventDragAway);
-
-	document.body.addEventListener("drop", preventDragAway);
+	on(["dragover", "dragleave", "drop"], preventDragAway);
 
 	effect(() => {
 		localStorage.setItem(
