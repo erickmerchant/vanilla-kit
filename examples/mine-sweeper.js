@@ -66,57 +66,53 @@ export default function mineSweeper({height, width, mineCount}, target) {
 					range(height).map((y) =>
 						div()
 							.attr("role", "row")
-							.append(
-								range(width).map((x) => {
-									let square = boardMap.get(`${x} ${y}`);
-
-									return div()
-										.attr("role", "gridcell")
-										.attr("aria-rowindex", y + 1)
-										.attr("aria-colindex", x + 1)
-										.append(
-											button()
-												.classes(
-													{
-														revealed: () => square.isRevealed,
-														flagged: () => square.isFlagged,
-													},
-													range(8).map((i) => {
-														return {
-															[`armed-adjacent-count--${i}`]: () =>
-																square.armedAdjacentCount === i,
-														};
-													})
-												)
-												.attr("aria-label", () =>
-													square.isRevealed ? null : "Hidden"
-												)
-												.attr("type", "button")
-												.styles({"--column": x + 1, "--row": y + 1})
-												.on("click", revealSquare(x, y))
-												.on("contextmenu", toggleFlag(x, y))
-												.on("keydown", moveFocus(x, y))
-												.text(() => {
-													if (!square.isRevealed) {
-														return square.isFlagged ? "🚩" : "";
-													}
-
-													if (square.isFlagged && !square.isArmed) {
-														return "❌";
-													}
-
-													return square.isArmed
-														? "💥"
-														: square.armedAdjacentCount || "";
-												})
-										);
-								})
-							)
+							.append(range(width).map((x) => squareView(x, y)))
 					)
 				),
 		],
 		target
 	);
+
+	function squareView(x, y) {
+		let square = boardMap.get(`${x} ${y}`);
+
+		return div()
+			.attr("role", "gridcell")
+			.attr("aria-rowindex", y + 1)
+			.attr("aria-colindex", x + 1)
+			.append(
+				button()
+					.classes(
+						{
+							revealed: () => square.isRevealed,
+							flagged: () => square.isFlagged,
+						},
+						range(8).map((i) => {
+							return {
+								[`armed-adjacent-count--${i}`]: () =>
+									square.armedAdjacentCount === i,
+							};
+						})
+					)
+					.attr("aria-label", () => (square.isRevealed ? null : "Hidden"))
+					.attr("type", "button")
+					.styles({"--column": x + 1, "--row": y + 1})
+					.on("click", revealSquare(x, y))
+					.on("contextmenu", toggleFlag(x, y))
+					.on("keydown", moveFocus(x, y))
+					.text(() => {
+						if (!square.isRevealed) {
+							return square.isFlagged ? "🚩" : "";
+						}
+
+						if (square.isFlagged && !square.isArmed) {
+							return "❌";
+						}
+
+						return square.isArmed ? "💥" : square.armedAdjacentCount || "";
+					})
+			);
+	}
 
 	function updateTime() {
 		state.time = Math.floor((Date.now() - startTime) / 1000);
