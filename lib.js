@@ -48,7 +48,7 @@ export function effect(...callbacks) {
 		setTimeout(() => {
 			effectScheduled = false;
 
-			for (let callback of effectQueue.splice(0, Infinity)) {
+			for (let callback of new Set(effectQueue.splice(0, Infinity))) {
 				immediateEffect(callback);
 			}
 		}, 0);
@@ -131,9 +131,7 @@ export let math = h("math", "http://www.w3.org/1998/Math/MathML");
 
 /* Mixins + Helpers */
 
-export function attr(element, ...args) {
-	let [name, value] = args;
-
+export function attr(element, name, value) {
 	mutationEffect((element) => {
 		let currentValue = value;
 
@@ -149,9 +147,7 @@ export function attr(element, ...args) {
 	}, ...refAll(element));
 }
 
-export function prop(element, ...args) {
-	let [name, value] = args;
-
+export function prop(element, name, value) {
 	mutationEffect((element) => {
 		let currentValue = value;
 
@@ -209,9 +205,9 @@ export function data(element, data) {
 	}
 }
 
-export function on(element, key, value) {
+export function on(element, key, ...value) {
 	for (let k of [].concat(key)) {
-		element.addEventListener(k, ...[].concat(value));
+		element.addEventListener(k, ...value);
 	}
 }
 
