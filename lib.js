@@ -4,6 +4,7 @@ let currentCallback;
 let effectScheduled = false;
 let effectQueue = [];
 let reads = new WeakMap();
+let mixins = {};
 
 export function watch(object) {
 	reads.set(object, new Map());
@@ -79,8 +80,6 @@ function mutationEffect(callback, ...refs) {
 /* Declarative */
 
 class Node {
-	static mixins = {};
-
 	children = [];
 	props = [];
 
@@ -102,15 +101,15 @@ class Node {
 	}
 }
 
-export function mixin(...mixins) {
-	for (let mixin of mixins) {
-		Node.prototype[mixin.name] = function (...args) {
-			this.props.push([mixin.name, ...args]);
+export function mixin(...ms) {
+	for (let m of ms) {
+		Node.prototype[m.name] = function (...args) {
+			this.props.push([m.name, ...args]);
 
 			return this;
 		};
 
-		Node.mixins[mixin.name] = mixin;
+		mixins[m.name] = m;
 	}
 }
 
@@ -346,7 +345,7 @@ export function render(nodes, element) {
 			let childElement = document.createElementNS(node.namespace, node.name);
 
 			for (let [kind, ...args] of node.props) {
-				Node.mixins[kind](childElement, ...args);
+				mixins[kind](childElement, ...args);
 			}
 
 			render(node.children, childElement);
