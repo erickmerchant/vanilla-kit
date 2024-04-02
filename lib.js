@@ -83,19 +83,31 @@ class Node {
 	children = [];
 	props = [];
 
+	#textCalled = false;
+
 	constructor(name, namespace) {
 		this.name = name;
 		this.namespace = namespace;
 	}
 
 	append(...children) {
+		if (this.#textCalled) {
+			throw new Error("node already has text");
+		}
+
 		this.children.push(...children);
 
 		return this;
 	}
 
-	text(value) {
-		this.children = [text(value)];
+	text(...values) {
+		if (this.children.length) {
+			throw new Error("node already has children");
+		}
+
+		this.children = values.map((value) => text(value));
+
+		this.#textCalled = true;
 
 		return this;
 	}

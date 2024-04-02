@@ -1,6 +1,6 @@
 # html-render
 
-A tiny front-end framework using the builder pattern for defining UI. Also has shallow reactivity. Less than 1.5 kB minified and compressed. Also it's fully tree-shakeable if you use a bundler like rollup.
+A tiny front-end framework using the builder pattern for defining UI. Also has shallow reactivity. Only 1.5 kB minified and compressed. Also it's fully tree-shakeable if you use a bundler like rollup.
 
 Declarative UI in the form of JSX, tagged template literals, or templates has become the standard, but I think it's fairly limiting in what it can represent. Everything is props and children. In contrast a fluent interface using chained method calls can more closely match the rich DOM methods available. And it's still declarative. Just because it looks like imperative code, it is not updating the DOM. It is building a description of the DOM in the same way that JSX is. Plus it's reactive, because that's the most efficient way to keep the DOM in sync with state and avoid imperative changes in your application. And it's so small that you can use it nearly anywhere.
 
@@ -116,9 +116,9 @@ With the exception of `node.on`, because it already takes a closure as an argume
 
 ### `node.append` and `node.text`
 
-Append and text are the two ways of adding children to a node. Append can add multiple children. Text adds one text child.
+`append` and `text` are the two ways of adding children to a node. `append` can add multiple children of nodes or text. `text` adds one or more text children.
 
-For instance in this example you define a paragraph with two child spans. The first with text "hello", and the second with a closure that provides the value from state. When `state.name` upates just that text node's `nodeValue` will update.
+For instance in this example you define a paragraph with two child spans. The first with text "hello", and the second with a closure that provides the value from state. When `state.name` updates just that text node's `nodeValue` will update.
 
 ```javascript
 p().append(
@@ -127,6 +127,8 @@ p().append(
 );
 ```
 
+Note that if you try to call both `append` and `text`, or `text` multiple times, an error with be thrown.
+
 ### `each`, `include`, and `text`
 
 These three function can produce arguments to `node.append`.
@@ -134,7 +136,7 @@ These three function can produce arguments to `node.append`.
 With `each` you pass it a watched array, and a function for producing either `null` (skip this element), or either function that produces nodes, or nodes. It's most efficient to provide a function though, so that each item isn't rerendered every single time the array changes. `view` is an object with two properties, `item` and `index`, where `item` is an item from the array, and `index` is its position.
 
 ```javascript
-div()
+ol()
 	.append(each(state.list, (view) => {
 		if (view.item.show) return liView
 
@@ -159,7 +161,7 @@ div().append(
 );
 ```
 
-`text` is just like `node.text`, but it's passed to `append`. If an element just has one child that is a text node use `node.text`. Otherwise use `text` passed to `append`.
+`text` is just like `node.text`, but it's passed to `append`. If an element just has children that are text nodes use `node.text`. Otherwise use `text` passed to `append`.
 
 ### `render`
 
