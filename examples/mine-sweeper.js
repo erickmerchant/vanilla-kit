@@ -1,8 +1,7 @@
 import {
 	html,
-	render,
+	append,
 	watch,
-	text,
 	attr,
 	prop,
 	classes,
@@ -13,7 +12,7 @@ import {
 
 let {div, button} = html;
 
-mixin(attr, prop, classes, styles, on);
+mixin(attr, prop, classes, styles, on, append);
 
 const PLAY_STATES = {
 	PLAYING: 0,
@@ -49,41 +48,33 @@ export default function mineSweeper({height, width, mineCount}, target) {
 		}
 	}
 
-	render(
-		[
-			div()
-				.classes("info-panel")
-				.append(
+	append(
+		target,
+		div()
+			.classes("info-panel")
+			.append(
+				div()
+					.classes("flag-count")
+					.append(div().append("🚩"), () => state.flagCount),
+				div()
+					.attr("aria-live", "polite")
+					.append(() => ["", "💀", "🎉"][state.playState]),
+				div()
+					.classes("time")
+					.append(div().append("⏱️"), () => state.time)
+			),
+		div()
+			.classes("board")
+			.attr("aria-rowcount", height)
+			.attr("aria-colcount", width)
+			.attr("role", "grid")
+			.append(
+				range(height).map((y) =>
 					div()
-						.classes("flag-count")
-						.append(
-							div().text("🚩"),
-							text(() => state.flagCount)
-						),
-					div()
-						.attr("aria-live", "polite")
-						.text(() => ["", "💀", "🎉"][state.playState]),
-					div()
-						.classes("time")
-						.append(
-							div().text("⏱️"),
-							text(() => state.time)
-						)
-				),
-			div()
-				.classes("board")
-				.attr("aria-rowcount", height)
-				.attr("aria-colcount", width)
-				.attr("role", "grid")
-				.append(
-					range(height).map((y) =>
-						div()
-							.attr("role", "row")
-							.append(range(width).map((x) => squareView(x, y)))
-					)
-				),
-		],
-		target
+						.attr("role", "row")
+						.append(range(width).map((x) => squareView(x, y)))
+				)
+			)
 	);
 
 	function squareView(x, y) {
@@ -113,7 +104,7 @@ export default function mineSweeper({height, width, mineCount}, target) {
 					.on("click", revealSquare(x, y))
 					.on("contextmenu", toggleFlag(x, y))
 					.on("keydown", moveFocus(x, y))
-					.text(() => {
+					.append(() => {
 						if (!square.isRevealed) {
 							return square.isFlagged ? "🚩" : "";
 						}

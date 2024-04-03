@@ -1,12 +1,10 @@
 import {
 	html,
 	svg,
-	render,
+	append,
 	effect,
 	watch,
-	each,
-	text,
-	include,
+	map,
 	on,
 	classes,
 	attr,
@@ -18,10 +16,10 @@ let {h1, input, label, ol, li, button, footer, div} = html;
 
 let {title, path} = svg;
 
-mixin(on, classes, attr, prop);
+mixin(on, classes, attr, prop, append, map);
 
 export default function todoApp(target) {
-	let todoView = watch(
+	let state = watch(
 		Object.assign(
 			{
 				showDone: true,
@@ -45,19 +43,17 @@ export default function todoApp(target) {
 	);
 
 	effect(() => {
-		todoView._hasItems = todoView.list.length > 0;
+		state._hasItems = state.list.length > 0;
 	});
 
 	effect(() => {
-		todoView._hasDone = todoView.list.find((item) => item.isDone) != null;
+		state._hasDone = state.list.find((item) => item.isDone) != null;
 	});
-
-	on(document.body, ["dragover", "dragleave", "drop"], preventDragAway);
 
 	effect(() => {
 		localStorage.setItem(
 			"to-do-app",
-			JSON.stringify(todoView, (key, value) => {
+			JSON.stringify(state, (key, value) => {
 				if (key.startsWith("_")) {
 					return undefined;
 				}
@@ -67,99 +63,97 @@ export default function todoApp(target) {
 		);
 	});
 
-	render(
-		[
-			h1().classes("title").text("To Do List"),
-			input()
-				.classes("show-done")
-				.attr("id", "show-done")
-				.attr("type", "checkbox")
-				.prop("checked", () => todoView.showDone)
-				.on("change", (e) => {
-					let show = e.target.checked;
+	on(document.body, ["dragover", "dragleave", "drop"], preventDragAway);
 
-					for (let item of todoView.list) {
-						if (item.isDone) {
-							item.isEntering = show;
-							item.isLeaving = !show;
-						}
+	append(
+		target,
+		h1().classes("title").append("To Do List"),
+		input()
+			.classes("show-done")
+			.attr("id", "show-done")
+			.attr("type", "checkbox")
+			.prop("checked", () => state.showDone)
+			.on("change", (e) => {
+				let show = e.target.checked;
+
+				for (let item of state.list) {
+					if (item.isDone) {
+						item.isEntering = show;
+						item.isLeaving = !show;
+					}
+				}
+
+				state.showDone = show;
+			}),
+		label().attr("for", "show-done").append("Show Done"),
+		input()
+			.classes("input-text")
+			.attr("placeholder", "What do you have to do?")
+			.on("keypress", (e) => {
+				if (e.keyCode === 13) {
+					e.preventDefault();
+
+					let text = e.target.value.trim();
+
+					if (!text) {
+						return;
 					}
 
-					todoView.showDone = show;
-				}),
-			label().attr("for", "show-done").text("Show Done"),
-			input()
-				.classes("input-text")
-				.attr("placeholder", "What do you have to do?")
-				.on("keypress", (e) => {
-					if (e.keyCode === 13) {
-						e.preventDefault();
+					state.list.push(
+						watch({
+							text,
+							isDone: false,
+							isEntering: true,
+							isLeaving: false,
+						})
+					);
 
-						let text = e.target.value.trim();
-
-						if (!text) {
-							return;
-						}
-
-						todoView.list.push(
-							watch({
-								text,
-								isDone: false,
-								isEntering: true,
-								isLeaving: false,
-							})
-						);
-
-						e.target.value = "";
-					}
-				}),
-			ol()
-				.classes("list")
-				.append(
-					each(todoView.list, (view) =>
-						todoView.showDone || !view.item.isDone || view.item.isLeaving
-							? itemView
-							: null
-					)
-				),
-			include(() => (todoView._hasItems ? footerView : null)),
-		],
-		target
+					e.target.value = "";
+				}
+			}),
+		ol()
+			.classes("list")
+			.map(state.list, (ctx) => {
+				return state.showDone || !ctx.item.isDone || ctx.item.isLeaving
+					? itemView
+					: null;
+			}),
+		() => (state._hasItems ? footerView : null)
 	);
 
-	function itemView(view) {
+	function itemView(ctx) {
 		return li()
 			.classes("item", {
-				entering: () => view.item.isEntering,
-				leaving: () => view.item.isLeaving,
-				done: () => view.item.isDone,
-				dragging: () => todoView._dragItem === view.item,
+				entering: () => ctx.item.isEntering,
+				leaving: () => ctx.item.isLeaving,
+				done: () => ctx.item.isDone,
+				dragging: () => state._dragItem === ctx.item,
 			})
-			.attr("draggable", () => (todoView.list.length > 1 ? "true" : null))
+			.attr("draggable", () => (state.list.length > 1 ? "true" : null))
 			.on("dragstart", (e) => {
-				todoView._dragItem = view.item;
+				state._dragItem = ctx.item;
 
 				e.dataTransfer.effectAllowed = "move";
 			})
 			.on("dragend", () => {
-				todoView._dragItem = null;
+				state._dragItem = null;
 			})
 			.on("dragenter", () => {
-				if (todoView._dragItem != null) {
-					let from = todoView.list.findIndex((t) => t === todoView._dragItem);
+				if (state._dragItem != null) {
+					let from = state.list.findIndex((t) => t === state._dragItem);
 
-					todoView.list.splice(from, 1);
-					todoView.list.splice(view.index, 0, todoView._dragItem);
+					state.list.splice(from, 1);
+					state.list.splice(ctx.index, 0, state._dragItem);
 				}
 			})
 			.on(["dragover", "dragleave", "drop"], preventDefault)
 			.on("animationend", () => {
-				view.item.isLeaving = false;
-				view.item.isEntering = false;
+				ctx.item.isLeaving = false;
+				ctx.item.isEntering = false;
 
-				if (view.item.isDeleted) {
-					todoView.list.splice(
-						todoView.list.findIndex((item) => item === view.item),
+				if (ctx.item.isDeleted) {
+					state.list.splice(
+						state.list.findIndex((item) => item === ctx.item),
 						1
 					);
 				}
@@ -167,30 +161,30 @@ export default function todoApp(target) {
 			.append(
 				input()
 					.attr("type", "checkbox")
-					.attr("id", () => `item-${view.index}`)
-					.prop("checked", () => view.item.isDone)
+					.attr("id", () => `item-${ctx.index}`)
+					.prop("checked", () => ctx.item.isDone)
 					.on("change", () => {
-						if (!todoView.showDone && view.item.isDone) {
-							view.item.isLeaving = true;
+						if (!state.showDone && ctx.item.isDone) {
+							ctx.item.isLeaving = true;
 						}
 
-						view.item.isDone = !view.item.isDone;
+						ctx.item.isDone = !ctx.item.isDone;
 					}),
 				label()
-					.attr("for", () => `item-${view.index}`)
-					.text(() => view.item.text),
+					.attr("for", () => `item-${ctx.index}`)
+					.append(() => ctx.item.text),
 				button()
 					.attr("type", "button")
 					.classes("delete")
 					.on("click", () => {
-						view.item.isLeaving = true;
-						view.item.isDeleted = true;
+						ctx.item.isLeaving = true;
+						ctx.item.isDeleted = true;
 					})
 					.append(
 						svg()
 							.attr("viewBox", "0 0 16 16")
 							.append(
-								title().text("Delete"),
+								title().append("Delete"),
 								path().attr(
 									"d",
 									"M4 1 L8 5 L12 1 L15 4 L11 8 L15 12 L12 15 L8 11 L4 15 L1 12 L5 8 L1 4 Z"
@@ -204,16 +198,13 @@ export default function todoApp(target) {
 		return footer()
 			.classes("footer")
 			.append(
-				div().append(
-					text(() => {
-						let doneCount = todoView.list.filter((item) => item.isDone).length;
-						let totalCount = todoView.list.length;
+				div().append(() => {
+					let doneCount = state.list.filter((item) => item.isDone).length;
+					let totalCount = state.list.length;
 
-						return `${doneCount} of ${totalCount} `;
-					}),
-					" Done"
-				),
-				include(() => (todoView._hasDone ? clearDoneView : null))
+					return `${doneCount} of ${totalCount} `;
+				}, " Done"),
+				() => (state._hasDone ? clearDoneView : null)
 			);
 	}
 
@@ -222,20 +213,20 @@ export default function todoApp(target) {
 			.attr("type", "button")
 			.classes("clear-done")
 			.on("click", () => {
-				for (let i = todoView.list.length - 1; i >= 0; i--) {
-					let item = todoView.list[i];
+				for (let i = state.list.length - 1; i >= 0; i--) {
+					let item = state.list[i];
 
 					if (item.isDone) {
-						if (todoView.showDone) {
+						if (state.showDone) {
 							item.isLeaving = true;
 							item.isDeleted = true;
 						} else {
-							todoView.list.splice(i, 1);
+							state.list.splice(i, 1);
 						}
 					}
 				}
 			})
-			.text("Clear Done");
+			.append("Clear Done");
 	}
 
 	function preventDefault(e) {
@@ -243,7 +234,7 @@ export default function todoApp(target) {
 	}
 
 	function preventDragAway(e) {
-		if (todoView._dragItem != null) {
+		if (state._dragItem != null) {
 			e.preventDefault();
 		}
 	}

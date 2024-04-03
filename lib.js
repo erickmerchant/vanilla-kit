@@ -4,7 +4,7 @@ let currentCallback;
 let effectScheduled = false;
 let effectQueue = [];
 let reads = new WeakMap();
-let mixins = {};
+let bindings = new WeakMap();
 
 export function watch(object) {
 	reads.set(object, new Map());
@@ -80,48 +80,18 @@ function mutationEffect(callback, ...refs) {
 /* Declarative */
 
 class Node {
-	children = [];
-	props = [];
-
-	#textCalled = false;
-
 	constructor(name, namespace) {
-		this.name = name;
-		this.namespace = namespace;
-	}
-
-	append(...children) {
-		if (this.#textCalled) {
-			throw new Error("node already has text");
-		}
-
-		this.children.push(...children);
-
-		return this;
-	}
-
-	text(...values) {
-		if (this.children.length) {
-			throw new Error("node already has children");
-		}
-
-		this.children = values.map((value) => text(value));
-
-		this.#textCalled = true;
-
-		return this;
+		this.element = globalThis.document.createElementNS(namespace, name);
 	}
 }
 
-export function mixin(...ms) {
-	for (let m of ms) {
-		Node.prototype[m.name] = function (...args) {
-			this.props.push([m.name, ...args]);
+export function mixin(...methods) {
+	for (let method of methods) {
+		Node.prototype[method.name] = function (...args) {
+			method(this.element, ...args);
 
 			return this;
 		};
-
-		mixins[m.name] = m;
 	}
 }
 
@@ -223,12 +193,14 @@ export function on(element, key, ...value) {
 	}
 }
 
-/* Renderers */
-
-export function each(list, callback) {
+export function map(element, list, callback) {
 	let views = [];
 
-	return (_, end, document) => {
+	let [start, end] = getStartAndEnd(element.ownerDocument);
+
+	element.append(start, end);
+
+	mutationEffect((_, end) => {
 		let index = 0;
 
 		for (; index < list.length; index++) {
@@ -236,17 +208,16 @@ export function each(list, callback) {
 			let view = views[index];
 
 			if (!view) {
-				let startAndEnd = getStartAndEnd(document);
-
-				end.before(...startAndEnd);
-
-				let refs = refAll(...startAndEnd, document);
 				let data = watch({item, index});
-				let inc = include(callback, data);
+				let fragment = new DocumentFragment();
 
-				mutationEffect(inc, ...refs);
+				bindings.set(fragment, data);
 
-				views.push([refs[0], data]);
+				append(fragment, callback);
+
+				views.push([new WeakRef(fragment.firstChild), data]);
+
+				end.before(fragment);
 			} else {
 				let [_, data] = view;
 
@@ -265,101 +236,62 @@ export function each(list, callback) {
 		truncate(currentChild, end);
 
 		views.splice(index, Infinity);
-	};
+	}, ...refAll(start, end));
 }
 
-export function include(callback, ...args) {
-	let prevResult = null;
+export function append(element, ...children) {
+	for (let child of children.flat(Infinity)) {
+		let prevResult = null;
 
-	return (start, end) => {
-		let currentChild = start.nextSibling;
-		let currentResult = callback(...args);
-		let newChild;
+		let [start, end] = getStartAndEnd(element.ownerDocument);
 
-		if (currentResult == null && prevResult == null) {
-			return;
-		} else if (
-			typeof currentResult === "object" ||
-			typeof currentResult === "function"
-		) {
-			if (prevResult === currentResult) {
-				return;
-			}
+		bindings.set(start, bindings.get(element));
 
-			let unwrappedResult = callOrReturn(currentResult, ...args);
+		element.append(start, end);
 
-			newChild = new DocumentFragment();
-
-			render(unwrappedResult, newChild);
-		} else {
-			if (prevResult === currentResult) {
-				return;
-			}
-
-			newChild = currentResult;
-		}
-
-		truncate(currentChild, end);
-
-		if (newChild) {
-			start.after(newChild);
-		}
-
-		prevResult = currentResult;
-	};
-}
-
-export function text(value) {
-	let initialized = false;
-
-	return (start, _, document) => {
-		let currentResult = String(callOrReturn(value) ?? "");
-
-		if (!initialized) {
-			let text = document.createTextNode(currentResult);
-
-			start.after(text);
-
-			initialized = true;
-		} else {
+		mutationEffect((start, end) => {
 			let currentChild = start.nextSibling;
+			let currentResult = callOrReturn(child, bindings.get(start));
+			let newChild;
 
-			if (currentChild.nodeValue !== currentResult) {
-				currentChild.nodeValue = currentResult;
-			}
-		}
-	};
-}
+			if (currentResult == null && prevResult == null) {
+				return;
+			} else if (
+				currentResult != null &&
+				(typeof currentResult === "object" ||
+					typeof currentResult === "function")
+			) {
+				if (prevResult === currentResult) {
+					return;
+				}
 
-/* Rendering */
+				let unwrappedResult = callOrReturn(currentResult, bindings.get(start));
 
-export function render(nodes, element) {
-	let document = element.ownerDocument;
+				newChild = new DocumentFragment();
 
-	nodes = [].concat(nodes).flat(Infinity);
+				if (unwrappedResult != null) {
+					newChild.append(...[].concat(unwrappedResult).map((r) => r?.element));
+				}
+			} else {
+				if (prevResult === currentResult) {
+					return;
+				}
 
-	for (let node of nodes) {
-		if (node == null) continue;
-
-		if (typeof node === "string") {
-			element.append(node);
-		} else if (typeof node === "function") {
-			let [start, end] = getStartAndEnd(document);
-
-			element.append(start, end);
-
-			mutationEffect(node, ...refAll(start, end, document));
-		} else {
-			let childElement = document.createElementNS(node.namespace, node.name);
-
-			for (let [kind, ...args] of node.props) {
-				mixins[kind](childElement, ...args);
+				newChild = currentResult;
 			}
 
-			render(node.children, childElement);
+			if (currentChild?.nextSibling === end && newChild != null) {
+				currentChild.replaceWith(newChild);
+			} else {
+				truncate(currentChild, end);
 
-			element.append(childElement);
-		}
+				if (newChild != null) {
+					start.after(newChild);
+				}
+			}
+
+			prevResult = currentResult;
+		}, ...refAll(start, end));
 	}
 }
 
