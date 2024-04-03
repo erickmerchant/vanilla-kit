@@ -37,7 +37,7 @@ import {html} from "@erickmerchant/html-render";
 
 let {div} = html;
 
-div(); // Node {children: [], props: [], name: 'div', namespace: 'http://www.w3.org/1999/xhtml'}
+div(); // Node {element: div}
 ```
 
 ### `mixin`
@@ -102,8 +102,6 @@ form()
 			.prop("disabled", () => state.disabled)
 			.styles({color: () => (state.hasError ? "red" : "green")})
 			.on("click", () => {
-				console.log("submiting the form");
-
 				state.disabled = true;
 			})
 			.append("Submit")
@@ -126,7 +124,7 @@ p().append("hello", () => state.name);
 
 ### `node.map`
 
-This is the second way to add children. It's used to add a chunk of ui for every item in a watched list. You pass it a watched array, and a function for producing either `null` (skip this element), or either function that produces nodes, or nodes. It's most efficient to provide a function though, so that each item isn't rerendered every single time the array changes. `ctx` is an object with two properties, `item` and `index`, where `item` is an item from the array, and `index` is its position. It will get automatically passed to the function returned each iteration.
+This is the second way to add children. It's used to add a chunk of ui for every item in a watched list. You pass it a watched array, and a function for producing either `null` (skip this element), or either a function that produces nodes, or nodes. It's most efficient to provide a function though, so that each item isn't rerendered every single time the array changes. `ctx` is an object with two properties, `item` and `index`, where `item` is an item from the array, and `index` is its position. It will get automatically passed to the function returned each iteration.
 
 ```javascript
 ol().map(state.list, (ctx) => {
