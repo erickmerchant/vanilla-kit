@@ -114,6 +114,31 @@ form()
 
 With the exception of `node.on`, because it already takes a closure as an argument, many of these methods take a function in places where they could also take a literal value. In these cases these become effects that will run again when state changes. It's important to note though that you don't have to use a closure to use state. It's just if you want the attribute or prop to update when state changes.
 
+`on` can also take an array as its first argument to attach a handler to multiple events, and it accepts an optional third argument just like addEventListener.
+
+### `attr`, `prop`, `on`, `classes`, `styles`, and `data`
+
+The above mentioned methods can also be used outside the builder API. In those forms they take a DOM element as their first argument. For example:
+
+```javascript
+import {classes, watch} from "@erickmerchant/html-render";
+
+let state = watch({
+	a: true,
+	b: false,
+	c: false
+})
+let element = document.querySelector("#my-element");
+
+classes(element, {
+	a: () => state.a,
+	b: () => state.b,
+	c: () => state.c,
+})
+```
+
+And if that trivial example is tree-shaken you should just end up with the code for classes, and the reactive API, which will be far less than 1.5 kB.
+
 ### `node.append` and `node.text`
 
 `append` and `text` are the two ways of adding children to a node. `append` can add multiple children of nodes or text. `text` adds one or more text children.
