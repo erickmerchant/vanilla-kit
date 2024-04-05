@@ -1,6 +1,6 @@
 # html-render
 
-A tiny front-end framework using a fluent interface for constructing UI. Also has shallow reactivity. Only **1.4 kB** minified and compressed. Also it's fully tree-shakeable if you use a bundler like rollup. Currently it is hosted on JSR. Install with `deno add @erickmerchant/html-render`. Or use it from [jsDelivr](https://cdn.jsdelivr.net/gh/erickmerchant/html-render/lib.min.js) and add it to your import map. See the examples directory for usage.
+A tiny front-end framework using a fluent interface for constructing UI. Also has shallow reactivity. Only **1.4 kB** minified and compressed. Also it's fully tree-shakeable if you use a bundler like rollup. Currently it is hosted on JSR. Install with `deno add @erickmerchant/html-render`. Or use it from [jsDelivr](https://cdn.jsdelivr.net/gh/erickmerchant/html-render@~0.10.0/lib.min.js) and add it to your import map. See the examples directory for usage.
 
 ## API
 
@@ -138,7 +138,7 @@ function liView(ctx) {
 }
 ```
 
-`ctx` is an object with two properties, `item` and `index`, where `item` is an item from the array, and `index` is its position. It will get automatically passed to the function returned each iteration. `ctx` is watched
+`ctx` is an object with two properties, `item` and `index`, where `item` is an item from the array, and `index` is its position. It will get automatically passed to the function returned each iteration.
 
 ### `attr`, `prop`, `on`, `classes`, `styles`, `data`, `append`, and `map`
 
@@ -161,7 +161,7 @@ classes(element, {
 });
 ```
 
-And if that trivial example is tree-shaken you should just end up with the code for classes, and the reactive API, which will be far less than 1.4 kB.
+And if that contrived example is tree-shaken you should just end up with the code for classes, and the reactive API, which will be far less than 1.4 kB.
 
 Use `append` in this form once you have constructed everything, to put it into your document.
 
@@ -171,7 +171,7 @@ append(target, div().text("I'm a div"));
 
 `$`
 
-Alternatively you can use the dollar export. You can pass it an element, or a string to pass to `document.querySelector`, and it will wrap it in the same fluent interface of any constructed element.
+Alternatively you can use the `$` export. You can pass it an element, or a string to pass to `document.querySelector`, and it will wrap it in the same fluent interface of any constructed element.
 
 ```javascript
 $(target).append(div().text("I'm a div"));
@@ -184,4 +184,12 @@ $(target).append(div().text("I'm a div"));
 - [HyperScript](https://github.com/hyperhype/hyperscript)
 - [@vue/reactivity](https://github.com/vuejs/core/tree/main/packages/reactivity)
 - [Solid](https://www.solidjs.com/)
-- [html](https://github.com/yoshuawuyts/html)
+
+## To Do
+
+- Better name
+- Tests
+- Improve the reactive API
+- Collections from the `$` export
+- Make a site for it
+- Experiment with rewriting in TypeScript
