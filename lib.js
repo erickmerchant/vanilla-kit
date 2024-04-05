@@ -257,59 +257,66 @@ export function map(element, list, callback) {
 
 export function append(element, ...children) {
 	for (let child of children.flat(Infinity)) {
-		let prevResult = null;
+		if (typeof child === "function") {
+			let prevResult = null;
 
-		let [start, end] = getStartAndEnd(element.ownerDocument);
+			let [start, end] = getStartAndEnd(element.ownerDocument);
 
-		bindings.set(start, bindings.get(element));
+			bindings.set(start, bindings.get(element));
 
-		element.append(start, end);
+			element.append(start, end);
 
-		mutationEffect((start, end) => {
-			let currentChild = start.nextSibling;
-			let currentResult = callOrReturn(child, bindings.get(start));
-			let newChild;
+			mutationEffect((start, end) => {
+				let currentChild = start.nextSibling;
+				let currentResult = callOrReturn(child, bindings.get(start));
+				let newChild;
 
-			if (currentResult == null && prevResult == null) {
-				return;
-			} else if (
-				currentResult != null &&
-				(typeof currentResult === "object" ||
-					typeof currentResult === "function")
-			) {
-				if (prevResult === currentResult) {
+				if (currentResult == null && prevResult == null) {
 					return;
-				}
+				} else if (
+					currentResult != null &&
+					(typeof currentResult === "object" ||
+						typeof currentResult === "function")
+				) {
+					if (prevResult === currentResult) {
+						return;
+					}
 
-				let unwrappedResult = callOrReturn(currentResult, bindings.get(start));
-
-				newChild = new DocumentFragment();
-
-				if (unwrappedResult != null) {
-					newChild.append(
-						...[].concat(unwrappedResult).map((r) => r?.[Element.symbol])
+					let unwrappedResult = callOrReturn(
+						currentResult,
+						bindings.get(start)
 					);
+
+					newChild = new DocumentFragment();
+
+					if (unwrappedResult != null) {
+						newChild.append(
+							...[].concat(unwrappedResult).map((r) => r?.[Element.symbol] ?? r)
+						);
+					}
+				} else {
+					if (prevResult === currentResult) {
+						return;
+					}
+
+					newChild = currentResult;
 				}
-			} else {
-				if (prevResult === currentResult) {
-					return;
+
+				if (currentChild?.nextSibling === end && newChild != null) {
+					currentChild.replaceWith(newChild);
+				} else {
+					truncate(currentChild, end);
+
+					if (newChild != null) {
+						start.after(newChild);
+					}
 				}
 
-				newChild = currentResult;
-			}
-
-			if (currentChild?.nextSibling === end && newChild != null) {
-				currentChild.replaceWith(newChild);
-			} else {
-				truncate(currentChild, end);
-
-				if (newChild != null) {
-					start.after(newChild);
-				}
-			}
-
-			prevResult = currentResult;
-		}, ...refAll(start, end));
+				prevResult = currentResult;
+			}, ...refAll(start, end));
+		} else {
+			element.append(child?.[Element.symbol] ?? child);
+		}
 	}
 }
 
