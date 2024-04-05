@@ -81,15 +81,11 @@ function mutationEffect(callback, ...refs) {
 
 export class Element {
 	static symbol = Symbol("symbol");
-
-	constructor(name, namespace) {
-		this[Element.symbol] = globalThis.document.createElementNS(namespace, name);
-	}
 }
 
-export function mixin(...methods) {
-	for (let method of methods) {
-		Element.prototype[method.name] = function (...args) {
+export function mixin(methods) {
+	for (let [name, method] of Object.entries(methods)) {
+		Element.prototype[name] = function (...args) {
 			method(this[Element.symbol], ...args);
 
 			return this;
@@ -99,7 +95,11 @@ export function mixin(...methods) {
 
 function h(name, namespace) {
 	let root = (n = name) => {
-		return new Element(n, namespace);
+		let element = new Element();
+
+		element[Element.symbol] = globalThis.document.createElementNS(namespace, n);
+
+		return element;
 	};
 
 	return new Proxy(root, {
@@ -107,6 +107,18 @@ function h(name, namespace) {
 			return () => root(name);
 		},
 	});
+}
+
+export function $(target) {
+	if (typeof target === "string") {
+		target = globalThis.document.querySelector(target);
+	}
+
+	let element = new Element();
+
+	element[Element.symbol] = target;
+
+	return element;
 }
 
 export let html = h("html", "http://www.w3.org/1999/xhtml");

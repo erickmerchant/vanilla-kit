@@ -10,13 +10,14 @@ import {
 	attr,
 	prop,
 	mixin,
+	$,
 } from "../lib.js";
 
 let {h1, input, label, ol, li, button, footer, div} = html;
 
 let {title, path} = svg;
 
-mixin(on, classes, attr, prop, append, map);
+mixin({on, classes, attr, prop, append, map});
 
 export default function todoApp(target) {
 	let state = watch(
@@ -63,10 +64,9 @@ export default function todoApp(target) {
 		);
 	});
 
-	on(document.body, ["dragover", "dragleave", "drop"], preventDragAway);
+	$(document.body).on(["dragover", "dragleave", "drop"], preventDragAway);
 
-	append(
-		target,
+	$(target).append(
 		h1().classes("title").append("To Do List"),
 		input()
 			.classes("show-done")

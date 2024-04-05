@@ -8,11 +8,12 @@ import {
 	styles,
 	on,
 	mixin,
+	$,
 } from "../lib.js";
 
 let {div, button} = html;
 
-mixin(attr, prop, classes, styles, on, append);
+mixin({attr, prop, classes, styles, on, append});
 
 const PLAY_STATES = {
 	PLAYING: 0,
@@ -48,8 +49,7 @@ export default function mineSweeper({height, width, mineCount}, target) {
 		}
 	}
 
-	append(
-		target,
+	$(target).append(
 		div()
 			.classes("info-panel")
 			.append(
