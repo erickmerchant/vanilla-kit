@@ -23,12 +23,12 @@ export default function todoApp(target) {
 		Object.assign(
 			{
 				showDone: true,
-				list: [],
+				list: watch([]),
 				_dragItem: null,
 				_hasItems: false,
 				_hasDone: false,
 			},
-			JSON.parse(localStorage.getItem("to-do-app") ?? "", (key, value) => {
+			JSON.parse(localStorage.getItem("to-do-app") ?? "{}", (key, value) => {
 				if (key === "list") {
 					return watch(
 						value.map((item) => {
