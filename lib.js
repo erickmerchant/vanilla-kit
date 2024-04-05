@@ -291,7 +291,10 @@ export function append(element, ...children) {
 
 					if (unwrappedResult != null) {
 						newChild.append(
-							...[].concat(unwrappedResult).map((r) => r?.[Element.symbol] ?? r)
+							...[]
+								.concat(unwrappedResult)
+								.map((r) => r?.[Element.symbol] ?? r)
+								.filter((r) => r != null)
 						);
 					}
 				} else {
@@ -314,7 +317,7 @@ export function append(element, ...children) {
 
 				prevResult = currentResult;
 			}, ...refAll(start, end));
-		} else {
+		} else if (child != null) {
 			element.append(child?.[Element.symbol] ?? child);
 		}
 	}
