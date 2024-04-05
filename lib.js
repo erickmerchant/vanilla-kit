@@ -115,6 +115,10 @@ export let math = h("math", "http://www.w3.org/1998/Math/MathML");
 
 /* Fluent */
 
+export function unwrap(element) {
+	return element;
+}
+
 export function attr(element, name, value) {
 	mutationEffect((element) => {
 		let currentValue = value;
