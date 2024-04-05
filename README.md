@@ -1,12 +1,12 @@
 # html-render
 
-A tiny front-end framework using a fluent interface for constructing UI. Also has shallow reactivity. Only 1.3 kB minified and compressed. Also it's fully tree-shakeable if you use a bundler like rollup. Currently it is hosted on JSR. Install with `deno add @erickmerchant/html-render`. Or use it from [jsDelivr](https://cdn.jsdelivr.net/gh/erickmerchant/html-render/lib.min.js) and add it to your importmap. See the examples directory for usage.
+A tiny front-end framework using a fluent interface for constructing UI. Also has shallow reactivity. Only **1.35 kB** minified and compressed. Also it's fully tree-shakeable if you use a bundler like rollup. Currently it is hosted on JSR. Install with `deno add @erickmerchant/html-render`. Or use it from [jsDelivr](https://cdn.jsdelivr.net/gh/erickmerchant/html-render/lib.min.js) and add it to your import map. See the examples directory for usage.
 
 ## API
 
 ### `watch` and `effect`
 
-The reactivity API. `watch` will make an object reactive so that any time a property changes any effects that read that prop are rerun. `effect` is for effects that are not part of the DOM. For instance setting localStorage or something like that.
+The reactivity API. `watch` will make an object reactive so that any time a property changes any effects that read that prop are rerun. `effect` is for effects that are not part of the DOM. For instance setting localStorage or computed properties.
 
 If Signals land in browsers in the near future, they will be used as the underlying mechanism of the reactive API.
 
@@ -37,7 +37,7 @@ import {html} from "@erickmerchant/html-render";
 
 let {div} = html;
 
-div(); // Node {element: div}
+div();
 ```
 
 ### `mixin`
@@ -110,13 +110,13 @@ form()
 
 With the exception of `node.on`, because it already takes a closure as an argument, many of these methods take a function in places where they could also take a literal value. In these cases these become effects that will run again when state changes. It's important to note though that you don't have to use a closure to use state. It's just if you want the attribute or prop to update when state changes.
 
-`on` can also take an array as its first argument to attach a handler to multiple events, and it accepts an optional third argument just like addEventListener.
+`node.on` can also take an array as its first argument to attach a handler to multiple events, and it accepts an optional third argument just like addEventListener.
 
 ### `node.append`
 
 `append` is the primary way to add children to a node.
 
-For instance in this example you construct a paragraph with two children. The first the literal string "hello", and the second a closure that provides a value from state. When `state.name` updates just that text node's `nodeValue` will update.
+For instance in this example you construct a paragraph with two children. The first the literal string "hello", and the second a closure that provides a value from state. When `state.name` updates just that text node will update.
 
 ```javascript
 p().append("hello", () => state.name);
@@ -124,7 +124,7 @@ p().append("hello", () => state.name);
 
 ### `node.map`
 
-This is the second way to add children. It's used to add a chunk of ui for every item in a watched list. You pass it a watched array, and a function for producing either `null` (skip this element), or either a function that produces nodes, or nodes. It's most efficient to provide a function though, so that each item isn't rerendered every single time the array changes. `ctx` is an object with two properties, `item` and `index`, where `item` is an item from the array, and `index` is its position. It will get automatically passed to the function returned each iteration.
+This is the second way to add children. It's used to add a chunk of UI for every item in a watched list. You pass it a watched array, and a function for producing either `null` (skip this element), or either nodes, or a function that produces nodes. It's most efficient to provide a function though, so that each item isn't rerendered every single time the array changes.
 
 ```javascript
 ol().map(state.list, (ctx) => {
@@ -137,6 +137,8 @@ function liView(ctx) {
 	return li().text(ctx.item);
 }
 ```
+
+`ctx` is an object with two properties, `item` and `index`, where `item` is an item from the array, and `index` is its position. It will get automatically passed to the function returned each iteration. `ctx` is watched
 
 ### `attr`, `prop`, `on`, `classes`, `styles`, `data`, `append`, and `map`
 
@@ -159,7 +161,7 @@ classes(element, {
 });
 ```
 
-And if that trivial example is tree-shaken you should just end up with the code for classes, and the reactive API, which will be far less than 1.3 kB.
+And if that trivial example is tree-shaken you should just end up with the code for classes, and the reactive API, which will be far less than 1.35 kB.
 
 Use `append` in this form once you have constructed everything, to put it into your document.
 

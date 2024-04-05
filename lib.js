@@ -31,7 +31,7 @@ function set(o, key, value, r) {
 	let callbacks = reads.get(o).get(key);
 
 	if (callbacks) {
-		effect(...callbacks);
+		scheduledEffect(...callbacks);
 
 		callbacks.clear();
 	}
@@ -39,23 +39,7 @@ function set(o, key, value, r) {
 	return Reflect.set(o, key, value, r);
 }
 
-export function effect(...callbacks) {
-	effectQueue.push(...callbacks);
-
-	if (!effectScheduled) {
-		effectScheduled = true;
-
-		setTimeout(() => {
-			effectScheduled = false;
-
-			for (let callback of new Set(effectQueue.splice(0, Infinity))) {
-				immediateEffect(callback);
-			}
-		}, 0);
-	}
-}
-
-function immediateEffect(callback) {
+export function effect(callback) {
 	let prevCallback = currentCallback;
 
 	currentCallback = callback;
@@ -65,9 +49,25 @@ function immediateEffect(callback) {
 	currentCallback = prevCallback;
 }
 
+function scheduledEffect(...callbacks) {
+	effectQueue.push(...callbacks);
+
+	if (!effectScheduled) {
+		effectScheduled = true;
+
+		setTimeout(() => {
+			effectScheduled = false;
+
+			for (let callback of new Set(effectQueue.splice(0, Infinity))) {
+				effect(callback);
+			}
+		}, 0);
+	}
+}
+
 function mutationEffect(callback, ...refs) {
-	immediateEffect(() => {
-		let derefs = refs.map((ref) => (ref.deref ? ref.deref() : ref));
+	effect(() => {
+		let derefs = refs.map((ref) => ref.deref());
 
 		if (derefs.some((arg) => arg == null)) {
 			return;
@@ -79,16 +79,18 @@ function mutationEffect(callback, ...refs) {
 
 /* Declarative */
 
-class Node {
+export class Element {
+	static symbol = Symbol("symbol");
+
 	constructor(name, namespace) {
-		this.element = globalThis.document.createElementNS(namespace, name);
+		this[Element.symbol] = globalThis.document.createElementNS(namespace, name);
 	}
 }
 
 export function mixin(...methods) {
 	for (let method of methods) {
-		Node.prototype[method.name] = function (...args) {
-			method(this.element, ...args);
+		Element.prototype[method.name] = function (...args) {
+			method(this[Element.symbol], ...args);
 
 			return this;
 		};
@@ -97,7 +99,7 @@ export function mixin(...methods) {
 
 function h(name, namespace) {
 	let root = (n = name) => {
-		return new Node(n, namespace);
+		return new Element(n, namespace);
 	};
 
 	return new Proxy(root, {
@@ -111,7 +113,7 @@ export let html = h("html", "http://www.w3.org/1999/xhtml");
 export let svg = h("svg", "http://www.w3.org/2000/svg");
 export let math = h("math", "http://www.w3.org/1998/Math/MathML");
 
-/* Mixins + Helpers */
+/* Fluent */
 
 export function attr(element, name, value) {
 	mutationEffect((element) => {
@@ -201,9 +203,7 @@ export function map(element, list, callback) {
 	element.append(start, end);
 
 	mutationEffect((_, end) => {
-		let index = 0;
-
-		for (; index < list.length; index++) {
+		for (let index = 0; index < list.length; index++) {
 			let item = list[index];
 			let view = views[index];
 
@@ -231,11 +231,11 @@ export function map(element, list, callback) {
 			}
 		}
 
-		let currentChild = views[index]?.[0]?.deref();
+		let currentChild = views[list.length]?.[0]?.deref();
 
 		truncate(currentChild, end);
 
-		views.splice(index, Infinity);
+		views.splice(list.length, Infinity);
 	}, ...refAll(start, end));
 }
 
@@ -270,7 +270,9 @@ export function append(element, ...children) {
 				newChild = new DocumentFragment();
 
 				if (unwrappedResult != null) {
-					newChild.append(...[].concat(unwrappedResult).map((r) => r?.element));
+					newChild.append(
+						...[].concat(unwrappedResult).map((r) => r?.[Element.symbol])
+					);
 				}
 			} else {
 				if (prevResult === currentResult) {
