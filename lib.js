@@ -65,7 +65,7 @@ function scheduledEffect(...callbacks) {
 	}
 }
 
-function mutationEffect(callback, ...refs) {
+export function mutationEffect(callback, ...refs) {
 	effect(() => {
 		let derefs = refs.map((ref) => ref.deref());
 
@@ -80,13 +80,15 @@ function mutationEffect(callback, ...refs) {
 /* Declarative */
 
 export class Element {
-	static symbol = Symbol("symbol");
+	constructor(element) {
+		this.element = element;
+	}
 }
 
 export function mixin(methods) {
 	for (let [name, method] of Object.entries(methods)) {
 		Element.prototype[name] = function (...args) {
-			method(this[Element.symbol], ...args);
+			method(this.element, ...args);
 
 			return this;
 		};
@@ -95,11 +97,7 @@ export function mixin(methods) {
 
 function h(name, namespace) {
 	let root = (n = name) => {
-		let element = new Element();
-
-		element[Element.symbol] = globalThis.document.createElementNS(namespace, n);
-
-		return element;
+		return new Element(globalThis.document.createElementNS(namespace, n));
 	};
 
 	return new Proxy(root, {
@@ -109,16 +107,23 @@ function h(name, namespace) {
 	});
 }
 
-export function $(target) {
-	if (typeof target === "string") {
-		target = globalThis.document.querySelector(target);
-	}
+export function $(...target) {
+	return new Proxy(
+		target.map((t) => {
+			return new Element(t);
+		}),
+		{
+			get(target, key, proxy) {
+				return (...args) => {
+					for (let t of target) {
+						t[key].call(t, ...args);
+					}
 
-	let element = new Element();
-
-	element[Element.symbol] = target;
-
-	return element;
+					return proxy;
+				};
+			},
+		}
+	);
 }
 
 export let html = h("html", "http://www.w3.org/1999/xhtml");
@@ -271,38 +276,34 @@ export function append(element, ...children) {
 				let currentResult = callOrReturn(child, bindings.get(start));
 				let newChild;
 
-				if (currentResult == null && prevResult == null) {
-					return;
-				} else if (
-					currentResult != null &&
-					(typeof currentResult === "object" ||
-						typeof currentResult === "function")
+				if (
+					(currentResult == null && prevResult == null) ||
+					currentResult === prevResult
 				) {
-					if (prevResult === currentResult) {
-						return;
-					}
-
-					let unwrappedResult = callOrReturn(
-						currentResult,
-						bindings.get(start)
-					);
-
-					newChild = new DocumentFragment();
-
-					if (unwrappedResult != null) {
-						newChild.append(
-							...[]
-								.concat(unwrappedResult)
-								.map((r) => r?.[Element.symbol] ?? r)
-								.filter((r) => r != null)
+					return;
+				} else if (currentResult != null) {
+					if (
+						typeof currentResult === "object" ||
+						typeof currentResult === "function"
+					) {
+						let unwrappedResult = callOrReturn(
+							currentResult,
+							bindings.get(start)
 						);
-					}
-				} else {
-					if (prevResult === currentResult) {
-						return;
-					}
 
-					newChild = currentResult;
+						newChild = new DocumentFragment();
+
+						if (unwrappedResult != null) {
+							newChild.append(
+								...[]
+									.concat(unwrappedResult)
+									.map((r) => (r instanceof Element ? r?.element : r))
+									.filter((r) => r != null)
+							);
+						}
+					} else {
+						newChild = currentResult;
+					}
 				}
 
 				if (currentChild?.nextSibling === end && newChild != null) {
@@ -318,7 +319,7 @@ export function append(element, ...children) {
 				prevResult = currentResult;
 			}, ...refAll(start, end));
 		} else if (child != null) {
-			element.append(child?.[Element.symbol] ?? child);
+			element.append(child instanceof Element ? child?.element : child);
 		}
 	}
 }

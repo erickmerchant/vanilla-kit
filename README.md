@@ -1,6 +1,6 @@
 # html-render
 
-A tiny front-end framework using a fluent interface for constructing UI. Also has shallow reactivity. Only **1.4 kB** minified and compressed. Also it's fully tree-shakeable if you use a bundler like rollup. Currently it is hosted on JSR. Install with `deno add @erickmerchant/html-render`. Or use it from [jsDelivr](https://cdn.jsdelivr.net/gh/erickmerchant/html-render@~0.10.0/lib.min.js) and add it to your import map. See the examples directory for usage.
+A tiny front-end framework using a fluent interface for constructing UI. Also has shallow reactivity. Only **1.4 kB** minified and compressed. Also it's fully tree-shakeable if you use a bundler like rollup. Currently it is hosted on JSR. Install with `deno add @erickmerchant/html-render`. Or use it from [jsDelivr](https://cdn.jsdelivr.net/gh/erickmerchant/html-render@~0.11.0/lib.min.js) and add it to your import map. See the examples directory for usage.
 
 ## API
 
@@ -171,7 +171,7 @@ append(target, div().text("I'm a div"));
 
 `$`
 
-Alternatively you can use the `$` export. You can pass it an element, or a string to pass to `document.querySelector`, and it will wrap it in the same fluent interface of any constructed element.
+Alternatively you can use the `$` export. You can pass it multiple elements, and it will wrap each in the same fluent interface of any constructed element. It returns a proxy that will call the fluent methods on each element you passed in. It's not possible to pass dollar wrapped elements to append or map.
 
 ```javascript
 $(target).append(div().text("I'm a div"));
