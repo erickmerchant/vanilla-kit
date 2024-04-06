@@ -189,7 +189,4 @@ $(target).append(div().text("I'm a div"));
 
 - Better name
 - Tests
-- Improve the reactive API
-- Collections from the `$` export
-- Make a site for it
-- Experiment with rewriting in TypeScript
+- Web site
