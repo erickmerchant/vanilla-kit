@@ -1,6 +1,6 @@
 # html-render
 
-A tiny front-end framework using a fluent interface for constructing UI. Also has shallow reactivity. Only **1.4 kB** minified and compressed. Also it's fully tree-shakeable if you use a bundler like rollup. Currently it is hosted on JSR. Install with `deno add @erickmerchant/html-render`. Or use it from [jsDelivr](https://cdn.jsdelivr.net/gh/erickmerchant/html-render@~0.11.0/lib.min.js) and add it to your import map. See the examples directory for usage.
+A tiny front-end framework using a fluent interface for constructing UI. Also has shallow reactivity. Only **1.42 kB** minified and compressed. Also it's fully tree-shakeable if you use a bundler like rollup. Currently it is hosted on JSR. Install with `deno add @erickmerchant/html-render`. Or use it from [jsDelivr](https://cdn.jsdelivr.net/gh/erickmerchant/html-render@~0.12.0/lib.min.js) and add it to your import map. See the examples directory for usage.
 
 ## API
 
@@ -161,7 +161,7 @@ classes(element, {
 });
 ```
 
-And if that contrived example is tree-shaken you should just end up with the code for classes, and the reactive API, which will be far less than 1.4 kB.
+And if that contrived example is tree-shaken you should just end up with the code for classes, and the reactive API, which will be far less than 1.42 kB.
 
 Use `append` in this form once you have constructed everything, to put it into your document.
 
@@ -184,9 +184,3 @@ $(target).append(div().text("I'm a div"));
 - [HyperScript](https://github.com/hyperhype/hyperscript)
 - [@vue/reactivity](https://github.com/vuejs/core/tree/main/packages/reactivity)
 - [Solid](https://www.solidjs.com/)
-
-## To Do
-
-- Better name
-- Tests
-- Web site

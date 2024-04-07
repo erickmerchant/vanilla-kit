@@ -31,7 +31,19 @@ function set(o, key, value, r) {
 	let callbacks = reads.get(o).get(key);
 
 	if (callbacks) {
-		scheduledEffect(...callbacks);
+		effectQueue.push(...callbacks);
+
+		if (!effectScheduled) {
+			effectScheduled = true;
+
+			setTimeout(() => {
+				effectScheduled = false;
+
+				for (let callback of new Set(effectQueue.splice(0, Infinity))) {
+					effect(callback);
+				}
+			}, 0);
+		}
 
 		callbacks.clear();
 	}
@@ -49,23 +61,7 @@ export function effect(callback) {
 	currentCallback = prevCallback;
 }
 
-function scheduledEffect(...callbacks) {
-	effectQueue.push(...callbacks);
-
-	if (!effectScheduled) {
-		effectScheduled = true;
-
-		setTimeout(() => {
-			effectScheduled = false;
-
-			for (let callback of new Set(effectQueue.splice(0, Infinity))) {
-				effect(callback);
-			}
-		}, 0);
-	}
-}
-
-export function mutationEffect(callback, ...refs) {
+export function mutation(callback, ...refs) {
 	effect(() => {
 		let derefs = refs.map((ref) => ref.deref());
 
@@ -95,7 +91,7 @@ export function mixin(methods) {
 	}
 }
 
-function h(name, namespace) {
+export function h(name, namespace) {
 	let root = (n = name) => {
 		return new Element(globalThis.document.createElementNS(namespace, n));
 	};
@@ -106,6 +102,10 @@ function h(name, namespace) {
 		},
 	});
 }
+
+export let html = h("html", "http://www.w3.org/1999/xhtml");
+export let svg = h("svg", "http://www.w3.org/2000/svg");
+export let math = h("math", "http://www.w3.org/1998/Math/MathML");
 
 export function $(...target) {
 	return new Proxy(
@@ -126,87 +126,101 @@ export function $(...target) {
 	);
 }
 
-export let html = h("html", "http://www.w3.org/1999/xhtml");
-export let svg = h("svg", "http://www.w3.org/2000/svg");
-export let math = h("math", "http://www.w3.org/1998/Math/MathML");
-
 /* Fluent */
 
 export function unwrap(element) {
 	return element;
 }
 
+function _attr(element, name, value) {
+	if (value == null) {
+		element.removeAttribute(name);
+	} else if (value === true || value === false) {
+		element.toggleAttribute(name, value);
+	} else {
+		element.setAttribute(name, value);
+	}
+}
+
 export function attr(element, name, value) {
-	mutationEffect((element) => {
-		let currentValue = value;
+	if (typeof value === "function") {
+		mutation((element) => {
+			_attr(element, name, value());
+		}, ...refAll(element));
+	} else {
+		_attr(element, name, value);
+	}
+}
 
-		currentValue = callOrReturn(currentValue);
-
-		if (currentValue == null) {
-			element.removeAttribute(name);
-		} else if (currentValue === true || currentValue === false) {
-			element.toggleAttribute(name, currentValue);
-		} else {
-			element.setAttribute(name, currentValue);
-		}
-	}, ...refAll(element));
+function _prop(element, name, value) {
+	if (element[name] !== value) {
+		element[name] = value;
+	}
 }
 
 export function prop(element, name, value) {
-	mutationEffect((element) => {
-		let currentValue = value;
-
-		currentValue = callOrReturn(currentValue);
-
-		if (element[name] !== currentValue) {
-			element[name] = currentValue;
-		}
-	}, ...refAll(element));
+	if (typeof value === "function") {
+		mutation((element) => {
+			_prop(element, name, value());
+		}, ...refAll(element));
+	} else {
+		_prop(element, name, value);
+	}
 }
 
-export function classes(element, ...args) {
-	args = args.flat(Infinity);
+function _class(element, name, value) {
+	element.classList.toggle(name, !!value);
+}
 
-	for (let arg of args) {
-		if (typeof arg === "string") {
-			element.classList.add(arg);
+export function classes(element, ...values) {
+	for (let value of values) {
+		if (typeof value === "string") {
+			_class(element, value, true);
 		} else {
-			for (let [name, value] of Object.entries(arg)) {
-				mutationEffect((element) => {
-					let currentValue = value;
-
-					currentValue = callOrReturn(currentValue);
-
-					element.classList.toggle(name, !!currentValue);
-				}, ...refAll(element));
+			for (let [name, v] of Object.entries(value)) {
+				if (typeof v === "function") {
+					mutation((element) => {
+						_class(element, name, v());
+					}, ...refAll(element));
+				} else {
+					_class(element, name, v);
+				}
 			}
 		}
 	}
 }
 
-export function styles(element, styles) {
-	for (let [name, value] of Object.entries(styles)) {
-		mutationEffect((element) => {
-			let currentValue = value;
+function _style(element, name, value) {
+	element.style.setProperty(name, value);
+}
 
-			currentValue = callOrReturn(currentValue);
-
-			element.style.setProperty(name, currentValue);
-		}, ...refAll(element));
+export function styles(element, values) {
+	for (let [name, v] of Object.entries(values)) {
+		if (typeof v === "function") {
+			mutation((element) => {
+				_style(element, name, v());
+			}, ...refAll(element));
+		} else {
+			_style(element, name, v);
+		}
 	}
 }
 
-export function data(element, data) {
-	for (let [name, value] of Object.entries(data)) {
-		mutationEffect((element) => {
-			let currentValue = value;
+function _data(element, name, value) {
+	if (element.dataset[name] !== value) {
+		element.dataset[name] = value;
+	}
+}
 
-			currentValue = callOrReturn(currentValue);
-
-			if (element.dataset[name] !== currentValue) {
-				element.dataset[name] = currentValue;
-			}
-		}, ...refAll(element));
+export function data(element, values) {
+	for (let [name, v] of Object.entries(values)) {
+		if (typeof v === "function") {
+			mutation((element) => {
+				_data(element, name, v());
+			}, ...refAll(element));
+		} else {
+			_data(element, name, v);
+		}
 	}
 }
 
@@ -223,7 +237,7 @@ export function map(element, list, callback) {
 
 	element.append(start, end);
 
-	mutationEffect((_, end) => {
+	mutation((_, end) => {
 		for (let index = 0; index < list.length; index++) {
 			let item = list[index];
 			let view = views[index];
@@ -261,7 +275,7 @@ export function map(element, list, callback) {
 }
 
 export function append(element, ...children) {
-	for (let child of children.flat(Infinity)) {
+	for (let child of children) {
 		if (typeof child === "function") {
 			let prevResult = null;
 
@@ -271,9 +285,9 @@ export function append(element, ...children) {
 
 			element.append(start, end);
 
-			mutationEffect((start, end) => {
+			mutation((start, end) => {
 				let currentChild = start.nextSibling;
-				let currentResult = callOrReturn(child, bindings.get(start));
+				let currentResult = child(bindings.get(start));
 				let newChild;
 
 				if (
@@ -282,24 +296,24 @@ export function append(element, ...children) {
 				) {
 					return;
 				} else if (currentResult != null) {
-					if (
-						typeof currentResult === "object" ||
+					currentResult =
 						typeof currentResult === "function"
-					) {
-						let unwrappedResult = callOrReturn(
-							currentResult,
-							bindings.get(start)
-						);
+							? currentResult(bindings.get(start))
+							: currentResult;
 
+					if (typeof currentResult === "object") {
 						newChild = new DocumentFragment();
 
-						if (unwrappedResult != null) {
-							newChild.append(
-								...[]
-									.concat(unwrappedResult)
-									.map((r) => (r instanceof Element ? r?.element : r))
-									.filter((r) => r != null)
-							);
+						if (currentResult != null) {
+							let list = [];
+
+							for (let item of [].concat(currentResult)) {
+								if (item != null) {
+									list.push(item instanceof Element ? item?.element : item);
+								}
+							}
+
+							newChild.append(...list);
 						}
 					} else {
 						newChild = currentResult;
@@ -346,8 +360,4 @@ function truncate(currentChild, end) {
 
 		currentChild = nextChild;
 	}
-}
-
-function callOrReturn(value, ...args) {
-	return typeof value === "function" ? value(...args) : value;
 }
