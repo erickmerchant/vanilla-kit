@@ -133,10 +133,8 @@ export function unwrap(element) {
 }
 
 function _attr(element, name, value) {
-	if (value == null) {
-		element.removeAttribute(name);
-	} else if (value === true || value === false) {
-		element.toggleAttribute(name, value);
+	if (value == null || value === true || value === false) {
+		element.toggleAttribute(name, !!value);
 	} else {
 		element.setAttribute(name, value);
 	}
