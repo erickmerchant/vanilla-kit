@@ -1,6 +1,8 @@
 import {
 	html,
 	append,
+	map,
+	text,
 	watch,
 	attr,
 	prop,
@@ -13,7 +15,7 @@ import {
 
 let {div, button} = html;
 
-mixin({attr, prop, classes, styles, on, append});
+mixin({attr, prop, classes, styles, on, append, text, map});
 
 const PLAY_STATES = {
 	PLAYING: 0,
@@ -55,25 +57,25 @@ export default function mineSweeper({height, width, mineCount}, target) {
 			.append(
 				div()
 					.classes("flag-count")
-					.append(div().append("🚩"), () => state.flagCount),
+					.append(div().text("🚩"))
+					.text(() => state.flagCount),
 				div()
 					.attr("aria-live", "polite")
-					.append(() => ["", "💀", "🎉"][state.playState]),
+					.text(() => ["", "💀", "🎉"][state.playState]),
 				div()
 					.classes("time")
-					.append(div().append("⏱️"), () => state.time)
+					.append(div().text("⏱️"))
+					.text(() => state.time)
 			),
 		div()
 			.classes("board")
 			.attr("aria-rowcount", height)
 			.attr("aria-colcount", width)
 			.attr("role", "grid")
-			.append(
-				...range(height).map((y) =>
-					div()
-						.attr("role", "row")
-						.append(...range(width).map((x) => squareView(x, y)))
-				)
+			.map(range(height), (y) =>
+				div()
+					.attr("role", "row")
+					.map(range(width), (x) => squareView(x(), y()))
 			)
 	);
 
@@ -104,7 +106,7 @@ export default function mineSweeper({height, width, mineCount}, target) {
 					.on("click", revealSquare(x, y))
 					.on("contextmenu", toggleFlag(x, y))
 					.on("keydown", moveFocus(x, y))
-					.append(() => {
+					.text(() => {
 						if (!square.isRevealed) {
 							return square.isFlagged ? "🚩" : "";
 						}

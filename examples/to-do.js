@@ -2,6 +2,7 @@ import {
 	html,
 	svg,
 	append,
+	text,
 	effect,
 	watch,
 	map,
@@ -17,7 +18,7 @@ let {h1, input, label, ol, li, button, footer, div} = html;
 
 let {title, path} = svg;
 
-mixin({on, classes, attr, prop, append, map});
+mixin({on, classes, attr, prop, append, text, map});
 
 export default function todoApp(target) {
 	let state = watch(
@@ -26,8 +27,8 @@ export default function todoApp(target) {
 				showDone: true,
 				list: watch([]),
 				_dragItem: null,
-				_hasItems: false,
-				_hasDone: false,
+				_hasItems: () => state.list.length > 0,
+				_hasDone: () => state.list.some((item) => item.isDone),
 			},
 			JSON.parse(localStorage.getItem("to-do-app") ?? "{}", (key, value) => {
 				if (key === "list") {
@@ -42,14 +43,6 @@ export default function todoApp(target) {
 			})
 		)
 	);
-
-	effect(() => {
-		state._hasItems = state.list.length > 0;
-	});
-
-	effect(() => {
-		state._hasDone = state.list.find((item) => item.isDone) != null;
-	});
 
 	effect(() => {
 		localStorage.setItem(
@@ -67,7 +60,7 @@ export default function todoApp(target) {
 	$(document.body).on(["dragover", "dragleave", "drop"], preventDragAway);
 
 	$(target).append(
-		h1().classes("title").append("To Do List"),
+		h1().classes("title").text("To Do List"),
 		input()
 			.classes("show-done")
 			.attr("id", "show-done")
@@ -85,7 +78,7 @@ export default function todoApp(target) {
 
 				state.showDone = show;
 			}),
-		label().attr("for", "show-done").append("Show Done"),
+		label().attr("for", "show-done").text("Show Done"),
 		input()
 			.classes("input-text")
 			.attr("placeholder", "What do you have to do?")
@@ -113,25 +106,25 @@ export default function todoApp(target) {
 			}),
 		ol()
 			.classes("list")
-			.map(state.list, (ctx) => {
-				return state.showDone || !ctx.item.isDone || ctx.item.isLeaving
+			.map(state.list, (item) => {
+				return state.showDone || !item().isDone || item().isLeaving
 					? itemView
 					: null;
 			}),
-		() => (state._hasItems ? footerView : null)
+		() => (state._hasItems() ? footerView : null)
 	);
 
-	function itemView(ctx) {
+	function itemView(item, index) {
 		return li()
 			.classes("item", {
-				entering: () => ctx.item.isEntering,
-				leaving: () => ctx.item.isLeaving,
-				done: () => ctx.item.isDone,
-				dragging: () => state._dragItem === ctx.item,
+				entering: () => item().isEntering,
+				leaving: () => item().isLeaving,
+				done: () => item().isDone,
+				dragging: () => state._dragItem === item(),
 			})
 			.attr("draggable", () => (state.list.length > 1 ? "true" : null))
 			.on("dragstart", (e) => {
-				state._dragItem = ctx.item;
+				state._dragItem = item();
 
 				e.dataTransfer.effectAllowed = "move";
 			})
@@ -143,17 +136,17 @@ export default function todoApp(target) {
 					let from = state.list.findIndex((t) => t === state._dragItem);
 
 					state.list.splice(from, 1);
-					state.list.splice(ctx.index, 0, state._dragItem);
+					state.list.splice(index(), 0, state._dragItem);
 				}
 			})
 			.on(["dragover", "dragleave", "drop"], preventDefault)
 			.on("animationend", () => {
-				ctx.item.isLeaving = false;
-				ctx.item.isEntering = false;
+				item().isLeaving = false;
+				item().isEntering = false;
 
-				if (ctx.item.isDeleted) {
+				if (item().isDeleted) {
 					state.list.splice(
-						state.list.findIndex((item) => item === ctx.item),
+						state.list.findIndex((i) => i === item()),
 						1
 					);
 				}
@@ -161,30 +154,30 @@ export default function todoApp(target) {
 			.append(
 				input()
 					.attr("type", "checkbox")
-					.attr("id", () => `item-${ctx.index}`)
-					.prop("checked", () => ctx.item.isDone)
+					.attr("id", () => `item-${index()}`)
+					.prop("checked", () => item().isDone)
 					.on("change", () => {
-						if (!state.showDone && ctx.item.isDone) {
-							ctx.item.isLeaving = true;
+						if (!state.showDone && item().isDone) {
+							item().isLeaving = true;
 						}
 
-						ctx.item.isDone = !ctx.item.isDone;
+						item().isDone = !item().isDone;
 					}),
 				label()
-					.attr("for", () => `item-${ctx.index}`)
-					.append(() => ctx.item.text),
+					.attr("for", () => `item-${index()}`)
+					.text(() => item().text),
 				button()
 					.attr("type", "button")
 					.classes("delete")
 					.on("click", () => {
-						ctx.item.isLeaving = true;
-						ctx.item.isDeleted = true;
+						item().isLeaving = true;
+						item().isDeleted = true;
 					})
 					.append(
 						svg()
 							.attr("viewBox", "0 0 16 16")
 							.append(
-								title().append("Delete"),
+								title().text("Delete"),
 								path().attr(
 									"d",
 									"M4 1 L8 5 L12 1 L15 4 L11 8 L15 12 L12 15 L8 11 L4 15 L1 12 L5 8 L1 4 Z"
@@ -198,13 +191,13 @@ export default function todoApp(target) {
 		return footer()
 			.classes("footer")
 			.append(
-				div().append(() => {
+				div().text(() => {
 					let doneCount = state.list.filter((item) => item.isDone).length;
 					let totalCount = state.list.length;
 
 					return `${doneCount} of ${totalCount} `;
 				}, " Done"),
-				() => (state._hasDone ? clearDoneView : null)
+				() => (state._hasDone() ? clearDoneView : null)
 			);
 	}
 
@@ -226,7 +219,7 @@ export default function todoApp(target) {
 					}
 				}
 			})
-			.append("Clear Done");
+			.text("Clear Done");
 	}
 
 	function preventDefault(e) {

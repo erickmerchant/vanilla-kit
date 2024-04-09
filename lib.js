@@ -1,10 +1,9 @@
-/* Reactivity */
+/* Reactive */
 
 let currentCallback;
 let effectScheduled = false;
 let effectQueue = [];
 let reads = new WeakMap();
-let bindings = new WeakMap();
 
 export function watch(object) {
 	reads.set(object, new Map());
@@ -241,18 +240,17 @@ export function map(element, list, callback) {
 			let view = views[index];
 
 			if (!view) {
-				let data = watch({item, index});
 				let fragment = new DocumentFragment();
+				let data = watch({item, index});
+				let methods = [() => data.item, () => data.index];
 
-				bindings.set(fragment, data);
+				_append(fragment, callback, methods);
 
-				append(fragment, callback);
-
-				views.push([new WeakRef(fragment.firstChild), data]);
+				views.push({start: new WeakRef(fragment.firstChild), data});
 
 				end.before(fragment);
 			} else {
-				let [_, data] = view;
+				let {data} = view;
 
 				if (data.item !== item) {
 					data.item = item;
@@ -264,7 +262,7 @@ export function map(element, list, callback) {
 			}
 		}
 
-		let currentChild = views[list.length]?.[0]?.deref();
+		let currentChild = views[list.length]?.start?.deref();
 
 		truncate(currentChild, end);
 
@@ -272,66 +270,89 @@ export function map(element, list, callback) {
 	}, ...refAll(start, end));
 }
 
+function _append(element, child, args) {
+	if (typeof child === "function") {
+		let prevResult = null;
+
+		let [start, end] = getStartAndEnd(element.ownerDocument);
+
+		element.append(start, end);
+
+		mutation((start, end) => {
+			let currentChild = start.nextSibling;
+			let currentResult = child(...args);
+			let newChild;
+
+			if (
+				(currentResult == null && prevResult == null) ||
+				currentResult === prevResult
+			) {
+				return;
+			} else if (currentResult != null) {
+				let unwrappedResult =
+					typeof currentResult === "function"
+						? currentResult(...args)
+						: currentResult;
+
+				if (typeof unwrappedResult === "object") {
+					newChild = new DocumentFragment();
+
+					if (unwrappedResult != null) {
+						let list = [];
+
+						for (let item of [].concat(unwrappedResult)) {
+							if (item != null) {
+								list.push(item instanceof Element ? item?.element : item);
+							}
+						}
+
+						newChild.append(...list);
+					}
+				} else {
+					newChild = unwrappedResult;
+				}
+			}
+
+			if (currentChild?.nextSibling === end && newChild != null) {
+				currentChild.replaceWith(newChild);
+			} else {
+				truncate(currentChild, end);
+
+				if (newChild != null) {
+					start.after(newChild);
+				}
+			}
+
+			prevResult = currentResult;
+		}, ...refAll(start, end));
+	} else if (child != null) {
+		element.append(child instanceof Element ? child?.element : child);
+	}
+}
+
 export function append(element, ...children) {
 	for (let child of children) {
-		if (typeof child === "function") {
-			let prevResult = null;
+		_append(element, child, []);
+	}
+}
 
+export function text(element, ...children) {
+	for (let child of children) {
+		if (typeof child === "function") {
+			let textNode = element.ownerDocument.createTextNode("");
 			let [start, end] = getStartAndEnd(element.ownerDocument);
 
-			bindings.set(start, bindings.get(element));
+			element.append(start, textNode, end);
 
-			element.append(start, end);
+			mutation((textNode) => {
+				let currentChild = child();
 
-			mutation((start, end) => {
-				let currentChild = start.nextSibling;
-				let currentResult = child(bindings.get(start));
-				let newChild;
-
-				if (
-					(currentResult == null && prevResult == null) ||
-					currentResult === prevResult
-				) {
-					return;
-				} else if (currentResult != null) {
-					currentResult =
-						typeof currentResult === "function"
-							? currentResult(bindings.get(start))
-							: currentResult;
-
-					if (typeof currentResult === "object") {
-						newChild = new DocumentFragment();
-
-						if (currentResult != null) {
-							let list = [];
-
-							for (let item of [].concat(currentResult)) {
-								if (item != null) {
-									list.push(item instanceof Element ? item?.element : item);
-								}
-							}
-
-							newChild.append(...list);
-						}
-					} else {
-						newChild = currentResult;
-					}
+				if (textNode.nodeValue !== currentChild) {
+					textNode.nodeValue = currentChild ?? "";
 				}
-
-				if (currentChild?.nextSibling === end && newChild != null) {
-					currentChild.replaceWith(newChild);
-				} else {
-					truncate(currentChild, end);
-
-					if (newChild != null) {
-						start.after(newChild);
-					}
-				}
-
-				prevResult = currentResult;
-			}, ...refAll(start, end));
+			}, ...refAll(textNode));
 		} else if (child != null) {
-			element.append(child instanceof Element ? child?.element : child);
+			element.append(element.ownerDocument.createTextNode(child));
 		}
 	}
 }

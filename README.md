@@ -1,12 +1,12 @@
 # html-render
 
-A tiny front-end framework using a fluent interface for constructing UI. Also has shallow reactivity. Only **1.42 kB** minified and compressed. Also it's fully tree-shakeable if you use a bundler like rollup. Currently it is hosted on JSR. Install with `deno add @erickmerchant/html-render`. Or use it from [jsDelivr](https://cdn.jsdelivr.net/gh/erickmerchant/html-render@~0.12.0/lib.min.js) and add it to your import map. See the examples directory for usage.
+A tiny front-end framework using a fluent interface for constructing UI. Also has shallow reactivity. Only **1.5 kB** minified and compressed. Also it's fully tree-shakeable if you use a bundler like rollup. Currently it is hosted on JSR. Install with `deno add @erickmerchant/html-render`. Or use it from [jsDelivr](https://cdn.jsdelivr.net/gh/erickmerchant/html-render@~0.13.0/lib.min.js) and add it to your import map. See the examples directory for usage.
 
 ## API
 
 ### `watch` and `effect`
 
-The reactivity API. `watch` will make an object reactive so that any time a property changes any effects that read that prop are rerun. `effect` is for effects that are not part of the DOM. For instance setting localStorage or computed properties.
+The reactivity API. `watch` will make an object reactive so that any time a property changes any effects that read that prop are rerun. `effect` is for effects that are not part of the DOM. For instance setting localStorage.
 
 If Signals land in browsers in the near future, they will be used as the underlying mechanism of the reactive API.
 
@@ -104,7 +104,7 @@ form()
 			.on("click", () => {
 				state.disabled = true;
 			})
-			.append("Submit")
+			.text("Submit")
 	);
 ```
 
@@ -116,29 +116,45 @@ With the exception of `node.on`, because it already takes a closure as an argume
 
 `append` is the primary way to add children to a node.
 
-For instance in this example you construct a paragraph with two children. The first the literal string "hello", and the second a closure that provides a value from state. When `state.name` updates just that text node will update.
+For instance in this example you construct a div with two children. The first is a span with the literal string "hello", and the second a closure that provides a span with a value from state. When `state.name` updates just that place in the DOM will update.
 
 ```javascript
-p().append("hello", () => state.name);
+div().append(div().text("hello "), () => (state.name ? nameView : null));
+
+function nameView() {
+	return span().text(state.name);
+}
 ```
 
 ### `node.map`
 
-This is the second way to add children. It's used to add a chunk of UI for every item in a watched list. You pass it a watched array, and a function for producing either `null` (skip this element), or either nodes, or a function that produces nodes. It's most efficient to provide a function though, so that each item isn't rerendered every single time the array changes.
+This is the second way to add children. It's used to add a chunk of UI for every item in a watched list. You pass it a watched array, and a callback for producing either `null` (remove this element), or either nodes, or a callback that produces nodes. It's most efficient to provide a callback though, so that each item isn't rerendered every single time the array changes.
 
 ```javascript
-ol().map(state.list, (ctx) => {
-	if (ctx.item.show) return liView;
+ol().map(state.list, (item, index) => {
+	if (item().show) return liView;
 
 	return null;
 });
 
-function liView(ctx) {
-	return li().text(ctx.item);
+function liView(item, index) {
+	return li().text(item());
 }
 ```
 
-`ctx` is an object with two properties, `item` and `index`, where `item` is an item from the array, and `index` is its position. It will get automatically passed to the function returned each iteration.
+`item` and `index` are functions essentially so that effects will run when they should and that the callback always gets the right data.
+
+### `node.text`
+
+`text` is the final way to add children to a node.
+
+For instance in this example you construct a div with two children. The first is the literal string "hello", and the second a closure that provides a value from state. When `state.name` updates just that place in the DOM will update. When you just need to append text, `node.text` is more efficient than append.
+
+```javascript
+div().append("hello ", () => state.name);
+```
+
+All three ways of adding children can be used together.
 
 ### `attr`, `prop`, `on`, `classes`, `styles`, `data`, `append`, and `map`
 
@@ -161,7 +177,7 @@ classes(element, {
 });
 ```
 
-And if that contrived example is tree-shaken you should just end up with the code for classes, and the reactive API, which will be far less than 1.42 kB.
+And if that contrived example is tree-shaken you should just end up with the code for classes, and the reactive API, which will be far less than 1.5 kB.
 
 Use `append` in this form once you have constructed everything, to put it into your document.
 
