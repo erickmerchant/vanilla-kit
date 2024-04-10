@@ -151,7 +151,7 @@ function liView(item, index) {
 For instance in this example you construct a div with two children. The first is the literal string "hello", and the second a closure that provides a value from state. When `state.name` updates just that place in the DOM will update. When you just need to append text, `node.text` is more efficient than append.
 
 ```javascript
-div().append("hello ", () => state.name);
+div().text("hello ", () => state.name);
 ```
 
 All three ways of adding children can be used together.
