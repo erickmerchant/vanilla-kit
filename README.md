@@ -1,6 +1,6 @@
 # html-render
 
-A tiny front-end framework using a fluent interface for constructing UI. Also has shallow reactivity. Only **1.5 kB** minified and compressed. Also it's fully tree-shakeable if you use a bundler like rollup. Currently it is hosted on JSR. Install with `deno add @erickmerchant/html-render`. Or use it from [jsDelivr](https://cdn.jsdelivr.net/gh/erickmerchant/html-render@~0.13.0/lib.min.js) and add it to your import map. See the examples directory for usage.
+A tiny front-end framework using a fluent interface for constructing UI. Also has shallow reactivity. Only **1.5 kB** minified and compressed. Also it's fully tree-shakeable if you use a bundler like rollup. Currently it is hosted on JSR. Install with `deno add @erickmerchant/html-render`. Or use it from [jsDelivr](https://cdn.jsdelivr.net/gh/erickmerchant/html-render@~0.13.2/lib.min.js) and add it to your import map. See the examples directory for usage.
 
 ## API
 
