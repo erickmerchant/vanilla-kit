@@ -1,5 +1,3 @@
-/* Reactive */
-
 let currentCallback;
 let effectScheduled = false;
 let effectQueue = [];
@@ -72,8 +70,6 @@ export function mutation(callback, ...refs) {
 	});
 }
 
-/* Declarative */
-
 export class Element {
 	constructor(element) {
 		this.element = element;
@@ -124,8 +120,6 @@ export function $(...target) {
 		}
 	);
 }
-
-/* Fluent */
 
 export function unwrap(element) {
 	return element;
@@ -356,8 +350,6 @@ export function text(element, ...children) {
 		}
 	}
 }
-
-/* Utils */
 
 function getStartAndEnd(document) {
 	return [document.createComment(""), document.createComment("")];
