@@ -15,7 +15,6 @@ import {
 } from "../lib.js";
 
 let {h1, input, label, ol, li, button, footer, div} = html;
-
 let {title, path} = svg;
 
 mixin({on, classes, attr, prop, append, text, map});

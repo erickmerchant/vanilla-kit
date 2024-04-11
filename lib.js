@@ -223,7 +223,6 @@ export function on(element, key, ...value) {
 
 export function map(element, list, callback) {
 	let views = [];
-
 	let [start, end] = getStartAndEnd(element.ownerDocument);
 
 	element.append(start, end);
@@ -267,7 +266,6 @@ export function map(element, list, callback) {
 function _append(element, child, args) {
 	if (typeof child === "function") {
 		let prevResult = null;
-
 		let [start, end] = getStartAndEnd(element.ownerDocument);
 
 		element.append(start, end);
