@@ -1,5 +1,0 @@
-{
-	"name": "@erickmerchant/html-render",
-	"version": "0.13.3",
-	"exports": "./lib.js"
-}
