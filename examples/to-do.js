@@ -1,35 +1,14 @@
-import {
-	html,
-	svg,
-	append,
-	text,
-	effect,
-	watch,
-	map,
-	on,
-	classes,
-	attr,
-	prop,
-	mixin,
-	$,
-} from "../lib.js";
-
-let {h1, input, label, ol, li, button, footer, div} = html;
-let {title, path} = svg;
-
-mixin({on, classes, attr, prop, append, text, map});
+import {fragment, list, effect, watch} from "../lib.js";
 
 export default function todoApp(target) {
-	let state = watch(
-		Object.assign(
-			{
-				showDone: true,
-				list: watch([]),
-				_dragItem: null,
-				_hasItems: () => state.list.length > 0,
-				_hasDone: () => state.list.some((item) => item.isDone),
-			},
-			JSON.parse(localStorage.getItem("to-do-app") ?? "{}", (key, value) => {
+	let defaultState = {
+		showDone: true,
+		list: watch([]),
+		_dragItem: null,
+	};
+	let savedState = localStorage.getItem("to-do-app");
+	let parsedState = savedState
+		? JSON.parse(savedState, (key, value) => {
 				if (key === "list") {
 					return watch(
 						value.map((item) => {
@@ -39,9 +18,11 @@ export default function todoApp(target) {
 				}
 
 				return value;
-			})
-		)
-	);
+		  })
+		: {};
+	let state = watch(Object.assign(defaultState, parsedState));
+	let hasItems = () => state.list.length > 0;
+	let hasDone = () => state.list.some((item) => item.isDone);
 
 	effect(() => {
 		localStorage.setItem(
@@ -56,169 +37,244 @@ export default function todoApp(target) {
 		);
 	});
 
-	$(document.body).on(["dragover", "dragleave", "drop"], preventDragAway);
+	for (let type of ["dragover", "dragleave", "drop"]) {
+		document.body.addEventListener(type, preventDragAway);
+	}
 
-	$(target).append(
-		h1().classes("title").text("To Do List"),
-		input()
-			.classes("show-done")
-			.attr("id", "show-done")
-			.attr("type", "checkbox")
-			.prop("checked", () => state.showDone)
-			.on("change", (e) => {
-				let show = e.target.checked;
+	let heading1 = document.createElement("h1");
 
-				for (let item of state.list) {
-					if (item.isDone) {
-						item.isEntering = show;
-						item.isLeaving = !show;
-					}
-				}
+	heading1.className = "title";
+	heading1.textContent = "To Do List";
 
-				state.showDone = show;
-			}),
-		label().attr("for", "show-done").text("Show Done"),
-		input()
-			.classes("input-text")
-			.attr("placeholder", "What do you have to do?")
-			.on("keypress", (e) => {
-				if (e.keyCode === 13) {
-					e.preventDefault();
+	let showDoneInput = document.createElement("input");
 
-					let text = e.target.value.trim();
+	showDoneInput.className = "show-done";
+	showDoneInput.id = "show-done";
+	showDoneInput.type = "checkbox";
 
-					if (!text) {
-						return;
-					}
+	effect(() => {
+		showDoneInput.checked = state.showDone;
+	});
 
-					state.list.push(
-						watch({
-							text,
-							isDone: false,
-							isEntering: true,
-							isLeaving: false,
-						})
-					);
+	showDoneInput.addEventListener("change", (e) => {
+		let show = e.target.checked;
 
-					e.target.value = "";
-				}
-			}),
-		ol()
-			.classes("list")
-			.map(state.list, (item) => {
-				return state.showDone || !item().isDone || item().isLeaving
-					? itemView
-					: null;
-			}),
-		() => (state._hasItems() ? footerView : null)
+		for (let item of state.list) {
+			if (item.isDone) {
+				item.isEntering = show;
+				item.isLeaving = !show;
+			}
+		}
+
+		state.showDone = show;
+	});
+
+	let showDoneLabel = document.createElement("label");
+
+	showDoneLabel.htmlFor = "show-done";
+	showDoneLabel.textContent = "Show Done";
+
+	let newInput = document.createElement("input");
+
+	newInput.className = "new-input";
+	newInput.placeholder = "What do you have to do?";
+
+	newInput.addEventListener("keydown", (e) => {
+		if (e.keyCode === 13) {
+			e.preventDefault();
+
+			let text = e.target.value.trim();
+
+			if (!text) {
+				return;
+			}
+
+			state.list.push(
+				watch({
+					text,
+					isDone: false,
+					isEntering: true,
+					isLeaving: false,
+				})
+			);
+
+			e.target.value = "";
+		}
+	});
+
+	let todoOl = document.createElement("ol");
+
+	todoOl.className = "list";
+
+	todoOl.append(
+		list(state.list, ({item}) => {
+			return state.showDone || !item.isDone || item.isLeaving ? itemView : null;
+		})
 	);
 
-	function itemView(item, index) {
-		return li()
-			.classes("item", {
-				entering: () => item().isEntering,
-				leaving: () => item().isLeaving,
-				done: () => item().isDone,
-				dragging: () => state._dragItem === item(),
-			})
-			.attr("draggable", () => (state.list.length > 1 ? "true" : null))
-			.on("dragstart", (e) => {
-				state._dragItem = item();
+	let footer = fragment(() => (hasItems() ? footerView : null));
 
-				e.dataTransfer.effectAllowed = "move";
-			})
-			.on("dragend", () => {
-				state._dragItem = null;
-			})
-			.on("dragenter", () => {
-				if (state._dragItem != null) {
-					let from = state.list.findIndex((t) => t === state._dragItem);
+	target.append(
+		heading1,
+		showDoneInput,
+		showDoneLabel,
+		newInput,
+		todoOl,
+		footer
+	);
 
-					state.list.splice(from, 1);
-					state.list.splice(index(), 0, state._dragItem);
-				}
-			})
-			.on(["dragover", "dragleave", "drop"], preventDefault)
-			.on("animationend", () => {
-				item().isLeaving = false;
-				item().isEntering = false;
+	function itemView(data) {
+		let listItem = document.createElement("li");
 
-				if (item().isDeleted) {
-					state.list.splice(
-						state.list.findIndex((i) => i === item()),
-						1
-					);
-				}
-			})
-			.append(
-				input()
-					.attr("type", "checkbox")
-					.attr("id", () => `item-${index()}`)
-					.prop("checked", () => item().isDone)
-					.on("change", () => {
-						if (!state.showDone && item().isDone) {
-							item().isLeaving = true;
-						}
+		listItem.className = "item";
 
-						item().isDone = !item().isDone;
-					}),
-				label()
-					.attr("for", () => `item-${index()}`)
-					.text(() => item().text),
-				button()
-					.attr("type", "button")
-					.classes("delete")
-					.on("click", () => {
-						item().isLeaving = true;
-						item().isDeleted = true;
-					})
-					.append(
-						svg()
-							.attr("viewBox", "0 0 16 16")
-							.append(
-								title().text("Delete"),
-								path().attr(
-									"d",
-									"M4 1 L8 5 L12 1 L15 4 L11 8 L15 12 L12 15 L8 11 L4 15 L1 12 L5 8 L1 4 Z"
-								)
-							)
-					)
-			);
+		effect(() => {
+			listItem.classList.toggle("entering", data.item.isEntering);
+		});
+
+		effect(() => {
+			listItem.classList.toggle("leaving", data.item.isLeaving);
+		});
+
+		effect(() => {
+			listItem.classList.toggle("done", data.item.isDone);
+		});
+
+		effect(() => {
+			listItem.classList.toggle("dragging", state._dragItem === data.item);
+		});
+
+		effect(() => {
+			listItem.draggable = state.list.length > 1 ? "true" : null;
+		});
+
+		listItem.addEventListener("dragstart", (e) => {
+			state._dragItem = data.item;
+
+			e.dataTransfer.effectAllowed = "move";
+		});
+
+		listItem.addEventListener("dragend", () => {
+			state._dragItem = null;
+		});
+
+		listItem.addEventListener("dragenter", () => {
+			if (state._dragItem != null) {
+				let from = state.list.findIndex((t) => t === state._dragItem);
+
+				state.list.splice(from, 1);
+				state.list.splice(data.index, 0, state._dragItem);
+			}
+		});
+
+		for (let type of ["dragover", "dragleave", "drop"]) {
+			listItem.addEventListener(type, preventDefault);
+		}
+
+		listItem.addEventListener("animationend", () => {
+			data.item.isLeaving = false;
+			data.item.isEntering = false;
+
+			if (data.item.isDeleted) {
+				state.list.splice(
+					state.list.findIndex((i) => i === data.item),
+					1
+				);
+			}
+		});
+
+		let doneCheckbox = document.createElement("input");
+
+		doneCheckbox.type = "checkbox";
+
+		effect(() => {
+			doneCheckbox.checked = data.item.isDone;
+		});
+
+		doneCheckbox.addEventListener("change", () => {
+			if (!state.showDone && data.item.isDone) {
+				data.item.isLeaving = true;
+			}
+
+			data.item.isDone = !data.item.isDone;
+		});
+
+		let doneLabel = document.createElement("label");
+
+		effect(() => {
+			doneCheckbox.id = `item-${data.index}`;
+			doneLabel.htmlFor = `item-${data.index}`;
+		});
+
+		effect(() => {
+			doneLabel.textContent = data.item.text;
+		});
+
+		let deleteButton = document.createElement("button");
+
+		deleteButton.type = "button";
+		deleteButton.className = "delete";
+
+		deleteButton.addEventListener("click", () => {
+			data.item.isLeaving = true;
+			data.item.isDeleted = true;
+		});
+
+		deleteButton.innerHTML = `<svg viewBox="0 0 16 16">
+			<title>Delete</title>
+			<path d="M4 1 L8 5 L12 1 L15 4 L11 8 L15 12 L12 15 L8 11 L4 15 L1 12 L5 8 L1 4 Z"></path>
+		</svg>`;
+
+		listItem.append(doneCheckbox, doneLabel, deleteButton);
+
+		return listItem;
 	}
 
 	function footerView() {
-		return footer()
-			.classes("footer")
-			.append(
-				div().text(() => {
-					let doneCount = state.list.filter((item) => item.isDone).length;
-					let totalCount = state.list.length;
+		let footer = document.createElement("footer");
 
-					return `${doneCount} of ${totalCount} `;
-				}, " Done"),
-				() => (state._hasDone() ? clearDoneView : null)
-			);
+		footer.className = "footer";
+
+		let div = document.createElement("div");
+
+		effect(() => {
+			let doneCount = state.list.filter((item) => item.isDone).length;
+			let totalCount = state.list.length;
+
+			div.textContent = `${doneCount} of ${totalCount} Done`;
+		});
+
+		let clearDone = fragment(() => (hasDone() ? clearDoneView : null));
+
+		footer.append(div, clearDone);
+
+		return footer;
 	}
 
 	function clearDoneView() {
-		return button()
-			.attr("type", "button")
-			.classes("clear-done")
-			.on("click", () => {
-				for (let i = state.list.length - 1; i >= 0; i--) {
-					let item = state.list[i];
+		let button = document.createElement("button");
 
-					if (item.isDone) {
-						if (state.showDone) {
-							item.isLeaving = true;
-							item.isDeleted = true;
-						} else {
-							state.list.splice(i, 1);
-						}
+		button.type = "button";
+		button.className = "clear-done";
+
+		button.addEventListener("click", () => {
+			for (let i = state.list.length - 1; i >= 0; i--) {
+				let item = state.list[i];
+
+				if (item.isDone) {
+					if (state.showDone) {
+						item.isLeaving = true;
+						item.isDeleted = true;
+					} else {
+						state.list.splice(i, 1);
 					}
 				}
-			})
-			.text("Clear Done");
+			}
+		});
+
+		button.textContent = "Clear Done";
+
+		return button;
 	}
 
 	function preventDefault(e) {

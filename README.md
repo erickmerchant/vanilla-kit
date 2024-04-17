@@ -1,6 +1,6 @@
 # html-render
 
-A tiny front-end framework using a fluent interface for constructing UI. Also has shallow reactivity. Only **1.5 kB** minified and compressed. Also it's fully tree-shakeable if you use a bundler like rollup. Currently it is hosted on JSR. Install with `deno add @erickmerchant/html-render`. Or use it from [jsDelivr](https://cdn.jsdelivr.net/gh/erickmerchant/html-render/lib.min.js) and add it to your import map. See the examples directory for usage.
+A tiny toolkit for reactivity in vanilla DOM. Less than **1 kB** minified and compressed. Use it from [jsDelivr](https://cdn.jsdelivr.net/gh/erickmerchant/html-render/lib.min.js) and add it to your import map. See the examples directory for usage.
 
 ## API
 
@@ -12,191 +12,48 @@ If Signals land in browsers in the near future, they will be used as the underly
 
 ```javascript
 let state = watch({
-	hasError: false,
-	name: "World"
-	list: watch([
-		"a",
-		"b",
-		"c"
-	])
-})
+	name: "World",
+});
 
 effect(() => {
 	localStorage.setItem("my-state", JSON.stringify(state));
-})
+});
 ```
 
-### `html`, `svg`, and `math`
+### `fragment`
 
-These three are proxies for getting functions to call to construct DOM elements. There are three seperate proxies, because they each have a specific namespace that must be used when creating elements.
+`fragment` is used to create dom nodes that will update reactively.
 
-For example:
-
-```javascript
-import {html} from "@erickmerchant/html-render";
-
-let {div} = html;
-
-div();
-```
-
-### `mixin`
-
-In order to be fully tree-shakeable you must declare what methods you'll use from the fluent interface.
-
-For instance this will throw an error, because we haven't said we need `classes`.
+For instance in this example you construct a div that will be created or destroyed based on `state.showHello`.
 
 ```javascript
-import {html} from "@erickmerchant/html-render";
+target.append(fragment(() => (state.showHello ? helloView : null)));
 
-let {div} = html;
+function helloView() {
+	let div = document.createElement("div");
 
-div().classes("my-div");
-```
+	div.innerText = "Hello";
 
-But this will work:
-
-```javascript
-import {html, classes, mixin} from "@erickmerchant/html-render";
-
-let {div} = html;
-
-mixin({classes});
-
-div().classes("my-div");
-```
-
-In this way you're forced to import nearly everything you'll use, but if you use for instance rollup then you won't end up with unused code.
-
-### `node.attr`, `node.prop`, `node.on`, `node.classes`, `node.styles`, and `node.data`
-
-These are part of the fluent interface, and are all ways of defining props, attributes, and events.
-
-```javascript
-form()
-	.classes("my-form", {
-		error: () => state.hasError,
-	})
-	.attr("action", () => state.endpoint)
-	.attr("method", "POST")
-	.data({
-		formId: () => state.formId,
-	})
-	.on("submit", async (e) => {
-		e.preventDefault();
-
-		let formData = new FormData(e.currentTarget);
-
-		try {
-			await fetch(state.endpoint, {
-				method: "POST",
-				body: formData,
-			});
-		} catch (error) {
-			state.hasError = true;
-		}
-	})
-	.append(
-		button()
-			.prop("type", "button")
-			.prop("disabled", () => state.disabled)
-			.styles({color: () => (state.hasError ? "red" : "green")})
-			.on("click", () => {
-				state.disabled = true;
-			})
-			.text("Submit")
-	);
-```
-
-With the exception of `node.on`, because it already takes a closure as an argument, many of these methods take a function in places where they could also take a literal value. In these cases these become effects that will run again when state changes. It's important to note though that you don't have to use a closure to use state. It's just if you want the attribute or prop to update when state changes.
-
-`node.on` can also take an array as its first argument to attach a handler to multiple events, and it accepts an optional third argument just like addEventListener.
-
-### `node.append`
-
-`append` is the primary way to add children to a node.
-
-For instance in this example you construct a div with two children. The first is a span with the literal string "hello", and the second a closure that provides a span with a value from state. When `state.name` updates just that place in the DOM will update.
-
-```javascript
-div().append(div().text("hello "), () => (state.name ? nameView : null));
-
-function nameView() {
-	return span().text(state.name);
+	return div;
 }
 ```
 
-### `node.map`
+### `list`
 
-This is the second way to add children. It's used to add a chunk of UI for every item in a watched list. You pass it a watched array, and a callback for producing either `null` (remove this element), or either nodes, or a callback that produces nodes. It's most efficient to provide a callback though, so that each item isn't rerendered every single time the array changes.
+Reactively creates fragments for items in list.
 
 ```javascript
-ol().map(state.list, (item, index) => {
-	if (item().show) return liView;
+target.append(
+	list(myWatchedList, (data) => (data.item.show ? itemView : null))
+);
 
-	return null;
-});
+function itemView(data) {
+	let div = document.createElement("div");
 
-function liView(item, index) {
-	return li().text(item());
+	div.id = `item-${data.index}`;
+
+	div.innerText = data.item.title;
+
+	return div;
 }
 ```
-
-`item` and `index` are functions essentially so that effects will run when they should and that the callback always gets the right data.
-
-### `node.text`
-
-`text` is the final way to add children to a node.
-
-For instance in this example you construct a div with two children. The first is the literal string "hello", and the second a closure that provides a value from state. When `state.name` updates just that place in the DOM will update. When you just need to append text, `node.text` is more efficient than append.
-
-```javascript
-div().text("hello ", () => state.name);
-```
-
-All three ways of adding children can be used together.
-
-### `attr`, `prop`, `on`, `classes`, `styles`, `data`, `append`, and `map`
-
-The above mentioned methods can also be used outside the fluent interface. In those forms they take a DOM element as their first argument. For example:
-
-```javascript
-import {classes, watch} from "@erickmerchant/html-render";
-
-let state = watch({
-	a: true,
-	b: false,
-	c: false,
-});
-let element = document.querySelector("#my-element");
-
-classes(element, {
-	a: () => state.a,
-	b: () => state.b,
-	c: () => state.c,
-});
-```
-
-And if that contrived example is tree-shaken you should just end up with the code for classes, and the reactive API, which will be far less than 1.5 kB.
-
-Use `append` in this form once you have constructed everything, to put it into your document.
-
-```javascript
-append(target, div().text("I'm a div"));
-```
-
-`$`
-
-Alternatively you can use the `$` export. You can pass it multiple elements, and it will wrap each in the same fluent interface of any constructed element. It returns a proxy that will call the fluent methods on each element you passed in. It's not possible to pass dollar wrapped elements to append or map.
-
-```javascript
-$(target).append(div().text("I'm a div"));
-```
-
-## Prior Art
-
-- [jQuery](https://github.com/jquery/jquery)
-- [Ender](https://github.com/ender-js/Ender)
-- [HyperScript](https://github.com/hyperhype/hyperscript)
-- [@vue/reactivity](https://github.com/vuejs/core/tree/main/packages/reactivity)
-- [Solid](https://www.solidjs.com/)

@@ -47,7 +47,7 @@ to-do-app {
 	font-weight: bold;
 }
 
-.input-text {
+.new-input {
 	appearance: none;
 	border: 1px solid oklch(0.5 0 0);
 	border-radius: 0.25em;

@@ -70,178 +70,25 @@ export function mutation(callback, ...refs) {
 	});
 }
 
-export class Element {
-	constructor(element) {
-		this.element = element;
-	}
-}
-
-export function mixin(methods) {
-	for (let [name, method] of Object.entries(methods)) {
-		Element.prototype[name] = function (...args) {
-			method(this.element, ...args);
-
-			return this;
-		};
-	}
-}
-
-export function h(name, namespace) {
-	let root = (n = name) => {
-		return new Element(globalThis.document.createElementNS(namespace, n));
-	};
-
-	return new Proxy(root, {
-		get(_, name) {
-			return () => root(name);
-		},
-	});
-}
-
-export let html = h("html", "http://www.w3.org/1999/xhtml");
-export let svg = h("svg", "http://www.w3.org/2000/svg");
-export let math = h("math", "http://www.w3.org/1998/Math/MathML");
-
-export function $(...target) {
-	return new Proxy(
-		target.map((t) => {
-			return new Element(t);
-		}),
-		{
-			get(target, key, proxy) {
-				return (...args) => {
-					for (let t of target) {
-						t[key].call(t, ...args);
-					}
-
-					return proxy;
-				};
-			},
-		}
-	);
-}
-
-export function unwrap(element) {
-	return element;
-}
-
-function _attr(element, name, value) {
-	if (value == null || value === true || value === false) {
-		element.toggleAttribute(name, !!value);
-	} else {
-		element.setAttribute(name, value);
-	}
-}
-
-export function attr(element, name, value) {
-	if (typeof value === "function") {
-		mutation((element) => {
-			_attr(element, name, value());
-		}, ...refAll(element));
-	} else {
-		_attr(element, name, value);
-	}
-}
-
-function _prop(element, name, value) {
-	if (element[name] !== value) {
-		element[name] = value;
-	}
-}
-
-export function prop(element, name, value) {
-	if (typeof value === "function") {
-		mutation((element) => {
-			_prop(element, name, value());
-		}, ...refAll(element));
-	} else {
-		_prop(element, name, value);
-	}
-}
-
-function _class(element, name, value) {
-	element.classList.toggle(name, !!value);
-}
-
-export function classes(element, ...values) {
-	for (let value of values) {
-		if (typeof value === "string") {
-			_class(element, value, true);
-		} else {
-			for (let [name, v] of Object.entries(value)) {
-				if (typeof v === "function") {
-					mutation((element) => {
-						_class(element, name, v());
-					}, ...refAll(element));
-				} else {
-					_class(element, name, v);
-				}
-			}
-		}
-	}
-}
-
-function _style(element, name, value) {
-	element.style.setProperty(name, value);
-}
-
-export function styles(element, values) {
-	for (let [name, v] of Object.entries(values)) {
-		if (typeof v === "function") {
-			mutation((element) => {
-				_style(element, name, v());
-			}, ...refAll(element));
-		} else {
-			_style(element, name, v);
-		}
-	}
-}
-
-function _data(element, name, value) {
-	if (element.dataset[name] !== value) {
-		element.dataset[name] = value;
-	}
-}
-
-export function data(element, values) {
-	for (let [name, v] of Object.entries(values)) {
-		if (typeof v === "function") {
-			mutation((element) => {
-				_data(element, name, v());
-			}, ...refAll(element));
-		} else {
-			_data(element, name, v);
-		}
-	}
-}
-
-export function on(element, key, ...value) {
-	for (let k of [].concat(key)) {
-		element.addEventListener(k, ...value);
-	}
-}
-
-export function map(element, list, callback) {
+export function list(list, callback) {
 	let views = [];
-	let [start, end] = getStartAndEnd(element.ownerDocument);
+	let end = document.createComment("");
+	let frag = new DocumentFragment();
 
-	element.append(start, end);
+	frag.append(end);
 
-	mutation((_, end) => {
+	mutation((end) => {
 		for (let index = 0; index < list.length; index++) {
 			let item = list[index];
 			let view = views[index];
 
 			if (!view) {
-				let fragment = new DocumentFragment();
 				let data = watch({item, index});
-				let methods = [() => data.item, () => data.index];
+				let frag = fragment(callback, [data]);
 
-				_append(fragment, callback, methods);
+				views.push({start: new WeakRef(frag.firstChild), data});
 
-				views.push({start: new WeakRef(fragment.firstChild), data});
-
-				end.before(fragment);
+				end.before(frag);
 			} else {
 				let {data} = view;
 
@@ -260,97 +107,60 @@ export function map(element, list, callback) {
 		truncate(currentChild, end);
 
 		views.splice(list.length, Infinity);
-	}, ...refAll(start, end));
+	}, ...refAll(end));
+
+	return frag;
 }
 
-function _append(element, child, args) {
-	if (typeof child === "function") {
-		let prevResult = null;
-		let [start, end] = getStartAndEnd(element.ownerDocument);
+export function fragment(callback, args = []) {
+	let prevResult = null;
+	let [start, end] = [document.createComment(""), document.createComment("")];
+	let frag = new DocumentFragment();
 
-		element.append(start, end);
+	frag.append(start, end);
 
-		mutation((start, end) => {
-			let currentChild = start.nextSibling;
-			let currentResult = child(...args);
-			let newChild;
+	mutation((start, end) => {
+		let currentChild = start.nextSibling;
+		let currentResult = callback(...args);
+		let newChild;
 
-			if (
-				(currentResult == null && prevResult == null) ||
-				currentResult === prevResult
-			) {
-				return;
-			} else if (currentResult != null) {
-				let unwrappedResult =
-					typeof currentResult === "function"
-						? currentResult(...args)
-						: currentResult;
+		if (
+			(currentResult == null && prevResult == null) ||
+			currentResult === prevResult
+		) {
+			return;
+		} else if (currentResult != null) {
+			let unwrappedResult = currentResult(...args);
 
-				if (typeof unwrappedResult === "object") {
-					newChild = new DocumentFragment();
+			if (unwrappedResult != null) {
+				newChild = new DocumentFragment();
 
-					if (unwrappedResult != null) {
-						let list = [];
+				let list = [];
 
-						for (let item of [].concat(unwrappedResult)) {
-							if (item != null) {
-								list.push(item instanceof Element ? item?.element : item);
-							}
-						}
-
-						newChild.append(...list);
+				for (let item of [].concat(unwrappedResult)) {
+					if (item != null) {
+						list.push(item);
 					}
-				} else {
-					newChild = unwrappedResult;
 				}
+
+				newChild.append(...list);
 			}
-
-			if (currentChild?.nextSibling === end && newChild != null) {
-				currentChild.replaceWith(newChild);
-			} else {
-				truncate(currentChild, end);
-
-				if (newChild != null) {
-					start.after(newChild);
-				}
-			}
-
-			prevResult = currentResult;
-		}, ...refAll(start, end));
-	} else if (child != null) {
-		element.append(child instanceof Element ? child?.element : child);
-	}
-}
-
-export function append(element, ...children) {
-	for (let child of children) {
-		_append(element, child, []);
-	}
-}
-
-export function text(element, ...children) {
-	for (let child of children) {
-		if (typeof child === "function") {
-			let textNode = element.ownerDocument.createTextNode("");
-			let [start, end] = getStartAndEnd(element.ownerDocument);
-
-			element.append(start, textNode, end);
-
-			mutation((textNode) => {
-				let currentChild = child();
-
-				if (textNode.nodeValue !== currentChild) {
-					textNode.nodeValue = currentChild ?? "";
-				}
-			}, ...refAll(textNode));
-		} else if (child != null) {
-			element.append(element.ownerDocument.createTextNode(child));
 		}
-	}
-}
 
-function getStartAndEnd(document) {
-	return [document.createComment(""), document.createComment("")];
+		if (currentChild?.nextSibling === end && newChild != null) {
+			currentChild.replaceWith(newChild);
+		} else {
+			truncate(currentChild, end);
+
+			if (newChild != null) {
+				start.after(newChild);
+			}
+		}
+
+		prevResult = currentResult;
+	}, ...refAll(start, end));
+
+	return frag;
 }
 
 function refAll(...args) {
