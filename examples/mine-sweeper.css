@@ -15,7 +15,6 @@ body {
 	display: grid;
 	font-family: system-ui, sans-serif;
 	height: 100vh;
-	margin: 0;
 	place-items: center;
 }
 
