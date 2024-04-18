@@ -3,38 +3,20 @@ import {fragment, list, effect, watch} from "../lib.js";
 export default function todoApp(target) {
 	let defaultState = {
 		showDone: true,
-		list: watch([]),
-		_dragItem: null,
+		list: [],
 	};
 	let savedState = localStorage.getItem("to-do-app");
-	let parsedState = savedState
-		? JSON.parse(savedState, (key, value) => {
-				if (key === "list") {
-					return watch(
-						value.map((item) => {
-							return watch(item);
-						})
-					);
-				}
-
-				return value;
-		  })
-		: {};
+	let parsedState = savedState ? JSON.parse(savedState) : {};
 	let state = watch(Object.assign(defaultState, parsedState));
+
+	state.list = watch(state.list.map((item) => watch(item)));
+
 	let hasItems = () => state.list.length > 0;
 	let hasDone = () => state.list.some((item) => item.isDone);
+	let dragState = watch({item: null});
 
 	effect(() => {
-		localStorage.setItem(
-			"to-do-app",
-			JSON.stringify(state, (key, value) => {
-				if (key.startsWith("_")) {
-					return undefined;
-				}
-
-				return value;
-			})
-		);
+		localStorage.setItem("to-do-app", JSON.stringify(state));
 	});
 
 	for (let type of ["dragover", "dragleave", "drop"]) {
@@ -141,7 +123,7 @@ export default function todoApp(target) {
 		});
 
 		effect(() => {
-			listItem.classList.toggle("dragging", state._dragItem === data.item);
+			listItem.classList.toggle("dragging", dragState.item === data.item);
 		});
 
 		effect(() => {
@@ -149,21 +131,21 @@ export default function todoApp(target) {
 		});
 
 		listItem.addEventListener("dragstart", (e) => {
-			state._dragItem = data.item;
+			dragState.item = data.item;
 
 			e.dataTransfer.effectAllowed = "move";
 		});
 
 		listItem.addEventListener("dragend", () => {
-			state._dragItem = null;
+			dragState.item = null;
 		});
 
 		listItem.addEventListener("dragenter", () => {
-			if (state._dragItem != null) {
-				let from = state.list.findIndex((t) => t === state._dragItem);
+			if (dragState.item != null) {
+				let from = state.list.findIndex((t) => t === dragState.item);
 
 				state.list.splice(from, 1);
-				state.list.splice(data.index, 0, state._dragItem);
+				state.list.splice(data.index, 0, dragState.item);
 			}
 		});
 
@@ -282,7 +264,7 @@ export default function todoApp(target) {
 	}
 
 	function preventDragAway(e) {
-		if (state._dragItem != null) {
+		if (dragState.item != null) {
 			e.preventDefault();
 		}
 	}
