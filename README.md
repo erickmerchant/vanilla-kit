@@ -1,6 +1,6 @@
-# html-render
+# vanilla-kit
 
-A tiny toolkit for reactivity in vanilla DOM. Less than **1 kB** minified and compressed. Use it from [jsDelivr](https://cdn.jsdelivr.net/gh/erickmerchant/html-render/lib.min.js) and add it to your import map. See the examples directory for usage.
+A tiny toolkit for reactivity in vanilla DOM. Less than **1 kB** minified and compressed. Use it from [jsDelivr](https://cdn.jsdelivr.net/gh/erickmerchant/vanilla-kit/lib.min.js) and add it to your import map. See the examples directory for usage.
 
 ## API
 
