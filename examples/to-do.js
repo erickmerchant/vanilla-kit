@@ -62,7 +62,7 @@ export default function todoApp(target) {
 	newInput.placeholder = "What do you have to do?";
 
 	newInput.addEventListener("keydown", (e) => {
-		if (e.keyCode === 13) {
+		if (e.key === "Enter") {
 			e.preventDefault();
 
 			let text = e.target.value.trim();
