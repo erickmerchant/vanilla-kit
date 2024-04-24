@@ -58,7 +58,7 @@ export function effect(callback) {
 	currentCallback = prevCallback;
 }
 
-export function mutation(callback, ...refs) {
+function mutation(callback, ...refs) {
 	effect(() => {
 		let derefs = refs.map((ref) => ref.deref());
 

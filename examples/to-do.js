@@ -1,4 +1,4 @@
-import {fragment, list, effect, watch} from "../lib.js";
+import {fragment, list, effect, watch} from "vanilla-kit";
 
 export default function todoApp(target) {
 	let defaultState = {
@@ -16,7 +16,9 @@ export default function todoApp(target) {
 	let dragState = watch({item: null});
 
 	effect(() => {
-		localStorage.setItem("to-do-app", JSON.stringify(state));
+		if (globalThis.localStorage) {
+			localStorage.setItem("to-do-app", JSON.stringify(state));
+		}
 	});
 
 	for (let type of ["dragover", "dragleave", "drop"]) {

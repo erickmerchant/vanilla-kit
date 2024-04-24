@@ -1,4 +1,4 @@
-import {effect, watch} from "../lib.js";
+import {effect, watch} from "vanilla-kit";
 
 const PLAY_STATES = {
 	PLAYING: 0,
