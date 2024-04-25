@@ -22,7 +22,11 @@ export default function todoApp(target) {
 	});
 
 	for (let type of ["dragover", "dragleave", "drop"]) {
-		document.body.addEventListener(type, preventDragAway);
+		document.body.addEventListener(type, (e) => {
+			if (dragState.item != null) {
+				e.preventDefault();
+			}
+		});
 	}
 
 	let heading1 = document.createElement("h1");
@@ -152,7 +156,9 @@ export default function todoApp(target) {
 		});
 
 		for (let type of ["dragover", "dragleave", "drop"]) {
-			listItem.addEventListener(type, preventDefault);
+			listItem.addEventListener(type, (e) => {
+				e.preventDefault();
+			});
 		}
 
 		listItem.addEventListener("animationend", () => {
@@ -259,16 +265,6 @@ export default function todoApp(target) {
 		button.textContent = "Clear Done";
 
 		return button;
-	}
-
-	function preventDefault(e) {
-		e.preventDefault();
-	}
-
-	function preventDragAway(e) {
-		if (dragState.item != null) {
-			e.preventDefault();
-		}
 	}
 }
 
