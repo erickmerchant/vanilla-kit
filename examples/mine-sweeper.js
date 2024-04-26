@@ -294,8 +294,8 @@ export class MineSweeper extends HTMLElement {
 		let height = +this.getAttribute("height");
 		let mineCount = +this.getAttribute("mine-count");
 
-		this.style.setProperty("--width", width);
-		this.style.setProperty("--height", height);
+		this.style.setProperty("--inline-size", width);
+		this.style.setProperty("--block-size", height);
 
 		mineSweeper({height, width, mineCount}, this);
 	}

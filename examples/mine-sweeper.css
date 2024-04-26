@@ -12,16 +12,16 @@
 
 body {
 	background-color: oklch(99.9% 0 0);
+	block-size: 100vh;
 	display: grid;
 	font-family: system-ui, sans-serif;
-	height: 100vh;
 	place-items: center;
 }
 
 mine-sweeper {
 	font-family: ui-monospace, monospace;
 	font-weight: bold;
-	width: calc(2.5em * var(--width));
+	inline-size: calc(2.5em * var(--inline-size));
 
 	:where(.info-panel) {
 		display: flex;
@@ -49,8 +49,8 @@ mine-sweeper {
 		display: grid;
 		gap: 1px;
 		grid-auto-rows: auto;
-		grid-template-columns: repeat(var(--width), 1fr);
-		width: 100%;
+		grid-template-columns: repeat(var(--inline-size), 1fr);
+		inline-size: 100%;
 	}
 
 	:where([role="row"]) {
@@ -61,13 +61,13 @@ mine-sweeper {
 		appearance: none;
 		aspect-ratio: 1;
 		background-color: oklch(80% 0 0);
+		block-size: 100%;
 		border: 0.3em outset oklch(90% 0 0);
 		font-size: 1em;
 		font-weight: bold;
 		grid-column: var(--column);
 		grid-row: var(--row);
-		height: 100%;
-		width: 100%;
+		inline-size: 100%;
 
 		&:where(.revealed) {
 			background-color: oklch(90% 0 0);
