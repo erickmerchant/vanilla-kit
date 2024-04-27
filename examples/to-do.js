@@ -210,9 +210,9 @@ export default function todoApp(target) {
 			data.item.isDeleted = true;
 		});
 
-		deleteButton.innerHTML = `<svg viewBox="0 0 16 16">
+		deleteButton.innerHTML = `<svg viewBox="0 0 14 14">
 			<title>Delete</title>
-			<path d="M4 1 L8 5 L12 1 L15 4 L11 8 L15 12 L12 15 L8 11 L4 15 L1 12 L5 8 L1 4 Z"></path>
+			<path d="M3 0 L7 4 L11 0 L14 3 L10 7 L14 11 L11 14 L7 10 L3 14 L0 11 L4 7 L0 3 Z"></path>
 		</svg>`;
 
 		listItem.append(doneCheckbox, doneLabel, deleteButton);
