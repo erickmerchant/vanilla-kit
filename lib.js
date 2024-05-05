@@ -180,3 +180,222 @@ function truncate(currentChild, end) {
 		currentChild = nextChild;
 	}
 }
+
+let htmlMap = new WeakMap();
+let tokensRegex = /(?<!\\)(<!--|-->|<[\w-]+|<\/[\w-]+>|\/>|[\'\"=>])/;
+
+function template(namespace) {
+	return (strs, ...args) => {
+		let node = htmlMap.get(strs);
+
+		if (!node) {
+			node = {nodes: []};
+
+			let stack = [node];
+			let mode = 0;
+			let comment = false;
+			let quote;
+			let attr;
+
+			for (let token of tokenize(...strs)) {
+				let {nodes, attrs} = stack[0];
+				let dynamic = false;
+
+				if (typeof token === "number") {
+					dynamic = true;
+				} else if (!token.trim()) {
+					continue;
+				}
+
+				if (comment) {
+					if (token === "-->") {
+						comment = false;
+					}
+				} else if (mode == 0) {
+					if (token === "<!--") {
+						comment = true;
+					} else if (token.startsWith?.("</")) {
+						let item;
+						let name = token.slice(2, -1);
+
+						do {
+							item = stack.shift();
+						} while (item.name !== name);
+					} else if (token.startsWith?.("<")) {
+						mode = 1;
+
+						stack.unshift({
+							name: token.slice(1),
+							namespace,
+							attrs: [],
+							nodes: [],
+						});
+
+						nodes.push(stack[0]);
+					} else {
+						nodes.push({dynamic, value: token});
+					}
+				} else if (mode === 1) {
+					if (token === ">") {
+						mode = 0;
+					} else if (token === "/>") {
+						mode = 0;
+
+						stack.shift();
+					} else if (token === "=") {
+						mode = 2;
+					} else {
+						for (let name of token.trim().split(/\s+/)) {
+							attr = {name, dynamic: false, value: true};
+
+							attrs.push(attr);
+						}
+					}
+				} else if (mode === 2) {
+					if (token === "'" || token === '"') {
+						attr.value = "";
+						quote = token;
+
+						mode = 3;
+					} else if (dynamic) {
+						attr.value = token;
+						attr.dynamic = true;
+
+						mode = 1;
+					} else {
+						throw Error();
+					}
+				} else if (token === quote) {
+					mode = 1;
+
+					quote = null;
+				} else {
+					attr.value += token;
+				}
+			}
+
+			htmlMap.set(strs, node);
+		}
+
+		return {node, args};
+	};
+}
+
+export let html = template("http://www.w3.org/1999/xhtml");
+export let svg = template("http://www.w3.org/2000/svg");
+export let math = template("http://www.w3.org/1998/Math/MathML");
+
+function* tokenize(...strs) {
+	for (let i = 0; i < strs.length; i++) {
+		yield* strs[i].split(tokensRegex);
+
+		if (i < strs.length - 1) {
+			yield i;
+		}
+	}
+}
+
+export function create({node, args}) {
+	let element;
+
+	if (node.name != null && node.namespace != null) {
+		element = document.createElementNS(node.namespace, node.name);
+	} else {
+		element = document.createDocumentFragment();
+	}
+
+	for (let attr of node?.attrs ?? []) {
+		if (attr.dynamic) {
+			let value = args[attr.value];
+
+			if (attr.name.startsWith("on")) {
+				element.addEventListener(attr.name.substring(2), ...[].concat(value));
+			} else if (typeof value === "function") {
+				mutation((element) => {
+					let current = value();
+
+					if (typeof current === "boolean") {
+						element.toggleAttribute(attr.name, current);
+					} else {
+						element.setAttribute(attr.name, current);
+					}
+				}, ...refAll(element));
+			} else if (
+				["class", "style", "data"].includes(attr.name) &&
+				typeof value === "object"
+			) {
+				for (let [k, v] of Object.entries(value)) {
+					if (typeof v === "function") {
+						mutation((element) => {
+							let current = v();
+
+							switch (attr.name) {
+								case "class":
+									element.classList.toggle(k, !!current);
+									break;
+
+								case "style":
+									element.style.setProperty(k, current);
+									break;
+
+								case "data":
+									element.dataset[k] = current;
+									break;
+							}
+						}, ...refAll(element));
+					} else {
+						switch (attr.name) {
+							case "class":
+								element.classList.toggle(k, !!v);
+								break;
+
+							case "style":
+								element.style.setProperty(k, v);
+								break;
+
+							case "data":
+								element.dataset[k] = v;
+								break;
+						}
+					}
+				}
+			} else if (typeof value === "boolean") {
+				element.toggleAttribute(attr.name, value);
+			} else {
+				element.setAttribute(attr.name, value);
+			}
+		} else {
+			element.setAttribute(attr.name, attr.value);
+		}
+	}
+
+	for (let n of node?.nodes ?? []) {
+		if (n.dynamic) {
+			let value = args[n.value];
+
+			if (value[Symbol.iterator]) {
+				for (let v of Array.from(value).flat(Infinity)) {
+					if (v.node != null) {
+						element.append(create(v));
+					} else {
+						element.append(v);
+					}
+				}
+			} else if (typeof value === "function") {
+				let text = document.createTextNode("");
+
+				mutation((text) => {
+					text.nodeValue = value();
+				}, ...refAll(text));
+
+				element.append(text);
+			}
+		} else if (n.name != null && n.namespace != null) {
+			element.append(create({node: n, args}));
+		} else {
+			element.append(n.value);
+		}
+	}
+
+	return element;
+}
