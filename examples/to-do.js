@@ -82,49 +82,7 @@ export default function todoApp(target) {
 						: null;
 				})}
 			</ol>
-			${fragment(() =>
-				hasItems()
-					? html`
-							<footer class="footer">
-								<div>
-									${() => {
-										let doneCount = state.list.filter(
-											(item) => item.isDone
-										).length;
-										let totalCount = state.list.length;
-
-										return `${doneCount} of ${totalCount} Done`;
-									}}
-								</div>
-								${fragment(() =>
-									hasDone()
-										? html`
-												<button
-													type="button"
-													class="clear-done"
-													@click=${() => {
-														for (let i = state.list.length - 1; i >= 0; i--) {
-															let item = state.list[i];
-
-															if (item.isDone) {
-																if (state.showDone) {
-																	item.isLeaving = true;
-																	item.isDeleted = true;
-																} else {
-																	state.list.splice(i, 1);
-																}
-															}
-														}
-													}}>
-													Clear Done
-												</button>
-										  `
-										: null
-								)}
-							</footer>
-					  `
-					: null
-			)}
+			${fragment(() => (hasItems() ? footerView : null))}
 		`)
 	);
 
@@ -202,6 +160,46 @@ export default function todoApp(target) {
 					`}
 				</button>
 			</li>
+		`;
+	}
+
+	function footerView() {
+		return html`
+			<footer class="footer">
+				<div>
+					${() => {
+						let doneCount = state.list.filter((item) => item.isDone).length;
+						let totalCount = state.list.length;
+
+						return `${doneCount} of ${totalCount} Done`;
+					}}
+				</div>
+				${fragment(() => (hasDone() ? clearDoneView : null))}
+			</footer>
+		`;
+	}
+
+	function clearDoneView() {
+		return html`
+			<button
+				type="button"
+				class="clear-done"
+				@click=${() => {
+					for (let i = state.list.length - 1; i >= 0; i--) {
+						let item = state.list[i];
+
+						if (item.isDone) {
+							if (state.showDone) {
+								item.isLeaving = true;
+								item.isDeleted = true;
+							} else {
+								state.list.splice(i, 1);
+							}
+						}
+					}
+				}}>
+				Clear Done
+			</button>
 		`;
 	}
 }
