@@ -130,7 +130,10 @@ export function fragment(callback, args = []) {
 		) {
 			return;
 		} else if (currentResult != null) {
-			let unwrappedResult = currentResult(...args);
+			let unwrappedResult =
+				typeof currentResult === "function"
+					? currentResult(...args)
+					: currentResult;
 
 			if (unwrappedResult != null) {
 				newChild = new DocumentFragment();
@@ -139,6 +142,10 @@ export function fragment(callback, args = []) {
 
 				for (let item of [].concat(unwrappedResult)) {
 					if (item != null) {
+						if (item.node != null && item.args != null) {
+							item = create(item);
+						}
+
 						list.push(item);
 					}
 				}
@@ -308,8 +315,12 @@ export function create({node, args}) {
 		if (attr.dynamic) {
 			let value = args[attr.value];
 
-			if (attr.name.startsWith("on")) {
-				element.addEventListener(attr.name.substring(2), ...[].concat(value));
+			if (attr.name.startsWith("@")) {
+				element.addEventListener(attr.name.substring(1), ...[].concat(value));
+			} else if (attr.name.startsWith(".")) {
+				mutation((element) => {
+					element[attr.name.substring(1)] = value();
+				}, ...refAll(element));
 			} else if (typeof value === "function") {
 				mutation((element) => {
 					let current = value();
@@ -389,6 +400,10 @@ export function create({node, args}) {
 				}, ...refAll(text));
 
 				element.append(text);
+			} else if (value.node != null && value.args != null) {
+				element.append(create(value));
+			} else {
+				element.append(value);
 			}
 		} else if (n.name != null && n.namespace != null) {
 			element.append(create({node: n, args}));

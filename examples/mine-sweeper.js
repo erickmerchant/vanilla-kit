@@ -37,40 +37,36 @@ export default function mineSweeper({height, width, mineCount}, target) {
 	}
 
 	target.append(
-		create(
-			html`
-				<div class="info-panel">
-					<div class="flag-count">
-						<div>🚩</div>
-						${() => state.flagCount}
-					</div>
-					<div aria-live="polite">
-						${() => ["", "💀", "🎉"][state.playState]}
-					</div>
-					<div class="time">
-						<div>⏱️</div>
-						${() => state.time}
-					</div>
+		create(html`
+			<div class="info-panel">
+				<div class="flag-count">
+					<div>🚩</div>
+					${() => state.flagCount}
 				</div>
-				<div
-					class="board"
-					aria-rowcount=${height}
-					aria-colcount=${width}
-					role="grid">
-					${Array(height)
-						.keys()
-						.map(
-							(y) => html`
-								<div role="row">
-									${Array(width)
-										.keys()
-										.map((x) => squareView(x, y))}
-								</div>
-							`
-						)}
+				<div aria-live="polite">${() => ["", "💀", "🎉"][state.playState]}</div>
+				<div class="time">
+					<div>⏱️</div>
+					${() => state.time}
 				</div>
-			`
-		)
+			</div>
+			<div
+				class="board"
+				aria-rowcount=${height}
+				aria-colcount=${width}
+				role="grid">
+				${Array(height)
+					.keys()
+					.map(
+						(y) => html`
+							<div role="row">
+								${Array(width)
+									.keys()
+									.map((x) => squareView(x, y))}
+							</div>
+						`
+					)}
+			</div>
+		`)
 	);
 
 	function squareView(x, y) {
@@ -98,7 +94,7 @@ export default function mineSweeper({height, width, mineCount}, target) {
 						"--row": y + 1,
 					}}
 					aria-label=${() => (square.isRevealed ? null : "Hidden")}
-					onclick=${() => {
+					@click=${() => {
 						if (state.playState !== PLAY_STATES.PLAYING) {
 							return;
 						}
@@ -182,7 +178,7 @@ export default function mineSweeper({height, width, mineCount}, target) {
 							}
 						}
 					}}
-					oncontextmenu=${(e) => {
+					@contextmenu=${(e) => {
 						let square = board.get(y).get(x);
 
 						e.preventDefault();
@@ -193,7 +189,7 @@ export default function mineSweeper({height, width, mineCount}, target) {
 							state.flagCount += square.isFlagged ? -1 : 1;
 						}
 					}}
-					onkeydown=${(e) => {
+					@keydown=${(e) => {
 						let keys = {
 							ArrowUp: [[x, y - 1]],
 							ArrowDown: [[x, y + 1]],
