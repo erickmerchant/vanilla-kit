@@ -1,4 +1,4 @@
-import {fragment, list, effect, watch, create, html, svg} from "vanilla-kit";
+import {fragment, list, effect, watch, create, html, svg} from "../lib.js";
 
 export default function todoApp(target) {
 	let defaultState = {
@@ -36,7 +36,7 @@ export default function todoApp(target) {
 				class="show-done"
 				id="show-done"
 				type="checkbox"
-				.checked=${() => state.showDone}
+				:checked=${() => state.showDone}
 				@change=${(e) => {
 					let show = e.target.checked;
 
@@ -89,12 +89,26 @@ export default function todoApp(target) {
 	function itemView(data) {
 		return html`
 			<li
-				class=${{
-					item: true,
-					entering: () => data.item.isEntering,
-					leaving: () => data.item.isLeaving,
-					done: () => data.item.isDone,
-					dragging: () => dragState.item === data.item,
+				class=${() => {
+					let classes = ["item"];
+
+					if (data.item.isEntering) {
+						classes.push("entering");
+					}
+
+					if (data.item.isLeaving) {
+						classes.push("leaving");
+					}
+
+					if (data.item.isDone) {
+						classes.push("done");
+					}
+
+					if (dragState.item === data.item) {
+						classes.push("dragging");
+					}
+
+					return classes.join(" ");
 				}}
 				draggable=${() => (state.list.length > 1 ? "true" : null)}
 				@dragstart=${(e) => {
@@ -135,7 +149,7 @@ export default function todoApp(target) {
 				}}>
 				<input
 					type="checkbox"
-					.checked=${() => data.item.isDone}
+					:checked=${() => data.item.isDone}
 					@change=${() => {
 						if (!state.showDone && data.item.isDone) {
 							data.item.isLeaving = true;

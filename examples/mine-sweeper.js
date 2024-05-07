@@ -1,4 +1,4 @@
-import {watch, html, create} from "vanilla-kit";
+import {watch, html, create} from "../lib.js";
 
 const PLAY_STATES = {
 	PLAYING: 0,
@@ -78,21 +78,26 @@ export default function mineSweeper({height, width, mineCount}, target) {
 					type="button"
 					data-x=${x}
 					data-y=${y}
-					class=${{
-						flagged: () => square.isFlagged,
-						revealed: () => square.isRevealed,
-						...Array(9)
-							.keys()
-							.reduce((cls, i) => {
-								cls[`armed-adjacent-count--${i}`] = () => square.danger === i;
+					class=${() => {
+						let classes = [];
 
-								return cls;
-							}, {}),
+						if (square.isFlagged) {
+							classes.push("flagged");
+						}
+
+						if (square.isRevealed) {
+							classes.push("revealed");
+						}
+
+						for (let i of Array(9).keys()) {
+							if (square.danger === i) {
+								classes.push(`armed-adjacent-count--${i}`);
+							}
+						}
+
+						return classes.join(" ");
 					}}
-					style=${{
-						"--column": x + 1,
-						"--row": y + 1,
-					}}
+					style=${`--column: ${x + 1}; --row: ${y + 1}`}
 					aria-label=${() => (square.isRevealed ? null : "Hidden")}
 					@click=${() => {
 						if (state.playState !== PLAY_STATES.PLAYING) {

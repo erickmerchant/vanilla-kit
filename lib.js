@@ -317,13 +317,13 @@ export function create({node, args}) {
 
 			if (attr.name.startsWith("@")) {
 				element.addEventListener(attr.name.substring(1), ...[].concat(value));
-			} else if (attr.name.startsWith(".")) {
+			} else if (attr.name.startsWith(":")) {
 				mutation((element) => {
 					element[attr.name.substring(1)] = value();
 				}, ...refAll(element));
-			} else if (typeof value === "function") {
+			} else {
 				mutation((element) => {
-					let current = value();
+					let current = typeof value === "function" ? value() : value;
 
 					if (typeof current === "boolean") {
 						element.toggleAttribute(attr.name, current);
@@ -331,49 +331,6 @@ export function create({node, args}) {
 						element.setAttribute(attr.name, current);
 					}
 				}, ...refAll(element));
-			} else if (
-				["class", "style", "data"].includes(attr.name) &&
-				typeof value === "object"
-			) {
-				for (let [k, v] of Object.entries(value)) {
-					if (typeof v === "function") {
-						mutation((element) => {
-							let current = v();
-
-							switch (attr.name) {
-								case "class":
-									element.classList.toggle(k, !!current);
-									break;
-
-								case "style":
-									element.style.setProperty(k, current);
-									break;
-
-								case "data":
-									element.dataset[k] = current;
-									break;
-							}
-						}, ...refAll(element));
-					} else {
-						switch (attr.name) {
-							case "class":
-								element.classList.toggle(k, !!v);
-								break;
-
-							case "style":
-								element.style.setProperty(k, v);
-								break;
-
-							case "data":
-								element.dataset[k] = v;
-								break;
-						}
-					}
-				}
-			} else if (typeof value === "boolean") {
-				element.toggleAttribute(attr.name, value);
-			} else {
-				element.setAttribute(attr.name, value);
 			}
 		} else {
 			element.setAttribute(attr.name, attr.value);
