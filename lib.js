@@ -58,7 +58,13 @@ export function effect(callback) {
 	currentCallback = prevCallback;
 }
 
-function mutation(callback, ...refs) {
+function mutation(callback, ...unrefs) {
+	let refs = [];
+
+	for (let unref of unrefs) {
+		refs.push(new WeakRef(unref));
+	}
+
 	effect(() => {
 		let derefs = refs.map((ref) => ref.deref());
 
@@ -107,7 +113,7 @@ export function list(list, callback) {
 		truncate(currentChild, end);
 
 		views.splice(list.length, Infinity);
-	}, ...refAll(end));
+	}, end);
 
 	return frag;
 }
@@ -119,59 +125,59 @@ export function fragment(callback, args = []) {
 
 	frag.append(start, end);
 
-	mutation((start, end) => {
-		let currentChild = start.nextSibling;
-		let currentResult = callback(...args);
-		let newChild;
+	mutation(
+		(start, end) => {
+			let currentChild = start.nextSibling;
+			let currentResult = callback(...args);
+			let newChild;
 
-		if (
-			(currentResult == null && prevResult == null) ||
-			currentResult === prevResult
-		) {
-			return;
-		} else if (currentResult != null) {
-			let unwrappedResult =
-				typeof currentResult === "function"
-					? currentResult(...args)
-					: currentResult;
+			if (
+				(currentResult == null && prevResult == null) ||
+				currentResult === prevResult
+			) {
+				return;
+			} else if (currentResult != null) {
+				let unwrappedResult =
+					typeof currentResult === "function"
+						? currentResult(...args)
+						: currentResult;
 
-			if (unwrappedResult != null) {
-				newChild = new DocumentFragment();
+				if (unwrappedResult != null) {
+					newChild = new DocumentFragment();
 
-				let list = [];
+					let list = [];
 
-				for (let item of [].concat(unwrappedResult)) {
-					if (item != null) {
-						if (item.node != null && item.args != null) {
-							item = create(item);
+					for (let item of [].concat(unwrappedResult)) {
+						if (item != null) {
+							if (item.node != null && item.args != null) {
+								item = create(item);
+							}
+
+							list.push(item);
 						}
-
-						list.push(item);
 					}
+
+					newChild.append(...list);
 				}
-
-				newChild.append(...list);
 			}
-		}
 
-		if (currentChild?.nextSibling === end && newChild != null) {
-			currentChild.replaceWith(newChild);
-		} else {
-			truncate(currentChild, end);
+			if (currentChild?.nextSibling === end && newChild != null) {
+				currentChild.replaceWith(newChild);
+			} else {
+				truncate(currentChild, end);
 
-			if (newChild != null) {
-				start.after(newChild);
+				if (newChild != null) {
+					start.after(newChild);
+				}
 			}
-		}
 
-		prevResult = currentResult;
-	}, ...refAll(start, end));
+			prevResult = currentResult;
+		},
+		start,
+		end
+	);
 
 	return frag;
-}
-
-function refAll(...args) {
-	return args.map((arg) => new WeakRef(arg));
 }
 
 function truncate(currentChild, end) {
@@ -320,7 +326,7 @@ export function create({node, args}) {
 			} else if (attr.name.startsWith(":")) {
 				mutation((element) => {
 					element[attr.name.substring(1)] = value();
-				}, ...refAll(element));
+				}, element);
 			} else {
 				mutation((element) => {
 					let current = typeof value === "function" ? value() : value;
@@ -330,7 +336,7 @@ export function create({node, args}) {
 					} else {
 						element.setAttribute(attr.name, current);
 					}
-				}, ...refAll(element));
+				}, element);
 			}
 		} else {
 			element.setAttribute(attr.name, attr.value);
@@ -354,7 +360,7 @@ export function create({node, args}) {
 
 				mutation((text) => {
 					text.nodeValue = value();
-				}, ...refAll(text));
+				}, text);
 
 				element.append(text);
 			} else if (value.node != null && value.args != null) {
