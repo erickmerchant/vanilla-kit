@@ -1,4 +1,4 @@
-import {watch, html, create} from "../lib.js";
+import {html, render, classes, styles} from "../lib.js";
 
 const PLAY_STATES = {
 	PLAYING: 0,
@@ -7,11 +7,9 @@ const PLAY_STATES = {
 };
 
 export default function mineSweeper({height, width, mineCount}, target) {
-	let state = watch({
-		playState: PLAY_STATES.PLAYING,
-		time: 0,
-		flagCount: mineCount,
-	});
+	let playState = PLAY_STATES.PLAYING;
+	let time = 0;
+	let flagCount = mineCount;
 	let board = new Map();
 	let startTime = null;
 	let timeInterval = null;
@@ -23,51 +21,54 @@ export default function mineSweeper({height, width, mineCount}, target) {
 		board.set(y, row);
 
 		for (let x = 0; x < width; x++) {
-			let square = watch({
+			let square = {
 				x,
 				y,
 				isFlagged: false,
 				isRevealed: false,
 				isArmed: false,
 				danger: 0,
-			});
+			};
 
 			row.set(x, square);
 		}
 	}
 
-	target.append(
-		create(html`
-			<div class="info-panel">
-				<div class="flag-count">
-					<div>🚩</div>
-					${() => state.flagCount}
+	update();
+
+	function update() {
+		render(
+			html`
+				<div class="info-panel">
+					<div class="flag-count">
+						<div>🚩</div>
+						${flagCount}
+					</div>
+					<div aria-live="polite">${["", "💀", "🎉"][playState]}</div>
+					<div class="time">
+						<div>⏱️</div>
+						${time}
+					</div>
 				</div>
-				<div aria-live="polite">${() => ["", "💀", "🎉"][state.playState]}</div>
-				<div class="time">
-					<div>⏱️</div>
-					${() => state.time}
-				</div>
-			</div>
-			<div
-				class="board"
-				aria-rowcount=${height}
-				aria-colcount=${width}
-				role="grid">
-				${Array(height)
-					.keys()
-					.map(
-						(y) => html`
-							<div role="row">
-								${Array(width)
-									.keys()
-									.map((x) => squareView(x, y))}
-							</div>
-						`
+				<div
+					class="board"
+					aria-rowcount=${height}
+					aria-colcount=${width}
+					role="grid">
+					${Array.from(
+						{length: height},
+						(_, y) =>
+							html`
+								<div role="row">
+									${Array.from({length: width}, (_, x) => squareView(x, y))}
+								</div>
+							`
 					)}
-			</div>
-		`)
-	);
+				</div>
+			`,
+			target
+		);
+	}
 
 	function squareView(x, y) {
 		let square = board.get(y).get(x);
@@ -78,29 +79,21 @@ export default function mineSweeper({height, width, mineCount}, target) {
 					type="button"
 					data-x=${x}
 					data-y=${y}
-					class=${() => {
-						let classes = [];
+					class=${classes({
+						flagged: square.isFlagged,
+						revealed: square.isRevealed,
+						...Array(9)
+							.keys()
+							.reduce((acc, i) => {
+								acc[`armed-adjacent-count--${i}`] = square.danger === i;
 
-						if (square.isFlagged) {
-							classes.push("flagged");
-						}
-
-						if (square.isRevealed) {
-							classes.push("revealed");
-						}
-
-						for (let i of Array(9).keys()) {
-							if (square.danger === i) {
-								classes.push(`armed-adjacent-count--${i}`);
-							}
-						}
-
-						return classes.join(" ");
-					}}
-					style=${`--column: ${x + 1}; --row: ${y + 1}`}
-					aria-label=${() => (square.isRevealed ? null : "Hidden")}
+								return acc;
+							}, {}),
+					})}
+					style=${styles({"--column": x + 1, "--row": y + 1})}
+					aria-label=${square.isRevealed ? null : "Hidden"}
 					@click=${() => {
-						if (state.playState !== PLAY_STATES.PLAYING) {
+						if (playState !== PLAY_STATES.PLAYING) {
 							return;
 						}
 
@@ -125,7 +118,7 @@ export default function mineSweeper({height, width, mineCount}, target) {
 								}
 							}
 
-							state.playState = PLAY_STATES.PLAYING;
+							playState = PLAY_STATES.PLAYING;
 
 							startTime = Date.now();
 							timeInterval = setInterval(updateTime, 250);
@@ -137,7 +130,7 @@ export default function mineSweeper({height, width, mineCount}, target) {
 							hiddenCount -= 1;
 
 							if (square.isArmed) {
-								state.playState = PLAY_STATES.LOST;
+								playState = PLAY_STATES.LOST;
 
 								clearInterval(timeInterval);
 
@@ -176,11 +169,13 @@ export default function mineSweeper({height, width, mineCount}, target) {
 								}
 
 								if (hiddenCount === mineCount) {
-									state.playState = PLAY_STATES.WON;
+									playState = PLAY_STATES.WON;
 
 									clearInterval(timeInterval);
 								}
 							}
+
+							update();
 						}
 					}}
 					@contextmenu=${(e) => {
@@ -191,7 +186,9 @@ export default function mineSweeper({height, width, mineCount}, target) {
 						if (!square.isRevealed) {
 							square.isFlagged = !square.isFlagged;
 
-							state.flagCount += square.isFlagged ? -1 : 1;
+							flagCount += square.isFlagged ? -1 : 1;
+
+							update();
 						}
 					}}
 					@keydown=${(e) => {
@@ -219,24 +216,25 @@ export default function mineSweeper({height, width, mineCount}, target) {
 								break;
 							}
 						}
+
+						update();
 					}}>
-					${() =>
-						!square.isRevealed
-							? square.isFlagged
-								? "🚩"
-								: ""
-							: square.isFlagged && !square.isArmed
-							? "❌"
-							: square.isArmed
-							? "💥"
-							: square.danger || ""}
+					${!square.isRevealed
+						? square.isFlagged
+							? "🚩"
+							: ""
+						: square.isFlagged && !square.isArmed
+						? "❌"
+						: square.isArmed
+						? "💥"
+						: square.danger || ""}
 				</button>
 			</div>
 		`;
 	}
 
 	function updateTime() {
-		state.time = Math.floor((Date.now() - startTime) / 1000);
+		time = Math.floor((Date.now() - startTime) / 1000);
 	}
 
 	function* getAdjacent(x, y) {
