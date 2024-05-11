@@ -163,7 +163,9 @@ export function render(
 		} else if (name.startsWith(":")) {
 			name = name.slice(1);
 
-			if (element[name] !== current) {
+			if (name === "ref") {
+				current.current = element;
+			} else if (element[name] !== current) {
 				element[name] = current;
 			}
 		} else {
@@ -289,4 +291,17 @@ export function styles(obj) {
 	}
 
 	return list.join("; ");
+}
+
+export function ref() {
+	let r;
+
+	return {
+		set current(el) {
+			r = new WeakRef(el);
+		},
+		get current() {
+			return r?.deref();
+		},
+	};
 }
