@@ -241,8 +241,6 @@ function* walkNodes({node, args}) {
 		} else if (typeof n === "number") {
 			let value = args[n];
 
-			value = typeof value === "function" ? Array.from(value()) : value;
-
 			for (let result of [].concat(value)) {
 				if (result == null) yield null;
 				else if (result.node) {
