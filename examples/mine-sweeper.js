@@ -1,4 +1,4 @@
-import {html, render, classes, styles, ref} from "../lib.js";
+import {html, render, classes, styles} from "../lib.js";
 
 const PLAY_STATES = {
 	PLAYING: 0,
@@ -72,13 +72,12 @@ export default function mineSweeper({height, width, mineCount}, target) {
 
 	function squareView(x, y) {
 		let square = board.get(y).get(x);
-		square.button = ref();
 
 		return html`
 			<div role="gridcell" aria-row-index=${y + 1} aria-col-index=${x + 1}>
 				<button
+					id=${`button-${x}-${y}`}
 					type="button"
-					:ref=${square.button}
 					class=${classes({
 						flagged: square.isFlagged,
 						revealed: square.isRevealed,
@@ -206,7 +205,7 @@ export default function mineSweeper({height, width, mineCount}, target) {
 						};
 
 						for (let [x, y] of keys?.[e.key] ?? []) {
-							let square = board.get(y)?.get?.(x)?.button.current;
+							let square = document.getElementById(`button-${x}-${y}`);
 
 							if (square) {
 								square.focus();
