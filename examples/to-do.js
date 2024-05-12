@@ -92,8 +92,6 @@ export default function todoApp(target) {
 			return null;
 		}
 
-		console.log(index);
-
 		return html`
 			<li
 				class=${classes({
