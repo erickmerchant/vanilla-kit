@@ -1,7 +1,12 @@
 let htmlMap = new WeakMap();
 let nodeMap = new WeakMap();
 let eventMap = new WeakMap();
-let tokensRegex = /(?<!\\)(<!--|-->|<[\w-]+|<\/[\w-]+>|\/>|[\'\"=>])/;
+let tokensRegex = /(<!--|-->|<[\w-]+|<\/[\w-]+>|\/>|[\'\"=>])/;
+let namespaces = {
+	html: "http://www.w3.org/1999/xhtml",
+	svg: "http://www.w3.org/2000/svg",
+	math: "http://www.w3.org/1998/Math/MathML",
+};
 
 export function html(strs, ...args) {
 	let node = htmlMap.get(strs);
@@ -41,9 +46,11 @@ export function html(strs, ...args) {
 					} while (item.name !== name);
 				} else if (token.startsWith?.("<")) {
 					mode = 1;
+					let prevDynamic = nodes[nodes.length - 1]?.dynamic;
 
 					stack.unshift({
 						name: token.slice(1),
+						dynamic: prevDynamic ? true : dynamic,
 						attrs: [],
 						nodes: [],
 						root: stack.length === 1,
@@ -95,6 +102,8 @@ export function html(strs, ...args) {
 
 			if (dynamic) {
 				for (let s of stack) {
+					if (s.dynamic) break;
+
 					s.dynamic = true;
 				}
 			}
@@ -155,9 +164,9 @@ export function render(
 				element.addEventListener(name, handleEvent);
 			}
 
-			let events = eventMap.get(element) ?? {};
+			let events = eventMap.get(element) ?? new Map();
 
-			events[name] = current;
+			events.set(name, current);
 
 			eventMap.set(element, events);
 		} else if (name.startsWith(":")) {
@@ -179,24 +188,18 @@ export function render(
 		}
 	}
 
-	let canSkip = true;
-
 	for (let subNode of walkNodes({node, args})) {
-		if (subNode == null) continue;
-
 		let newChild;
 		let isDynamic = subNode.node?.dynamic;
 
-		if (!canSkip || !currentChild || isDynamic) {
-			canSkip = canSkip ? !isDynamic : canSkip;
-
-			if (subNode.node.text) {
+		if (!currentChild || isDynamic) {
+			if (subNode.node.text != null) {
 				if (currentChild?.nodeType === 3) {
-					if (currentChild.nodeValue !== String(subNode.node.value)) {
-						currentChild.nodeValue = subNode.node.value;
+					if (currentChild.nodeValue !== String(subNode.node.text)) {
+						currentChild.nodeValue = subNode.node.text;
 					}
 				} else {
-					newChild = document.createTextNode(subNode.node.value);
+					newChild = document.createTextNode(subNode.node.text);
 				}
 			} else {
 				let subIsSimilar = subNode.node.root
@@ -242,49 +245,43 @@ function* walkNodes({node, args}) {
 			let value = args[n];
 
 			for (let result of [].concat(value)) {
-				if (result == null) yield null;
+				if (result == null) continue;
 				else if (result.node) {
 					yield* walkNodes(result);
 				} else {
-					yield {node: {text: true, dynamic: true, value: result}};
+					yield {node: {dynamic: true, text: result}};
 				}
 			}
 		} else {
-			yield {node: {text: true, dynamic: false, value: n}};
+			yield {node: {dynamic: false, text: n}};
 		}
 	}
 }
 
-function getNamespace(node, namespace = "http://www.w3.org/1999/xhtml") {
-	return node?.name === "svg" ? "http://www.w3.org/2000/svg" : namespace;
+function getNamespace(node, namespace = namespaces.html) {
+	return namespaces[node?.name] ?? namespace;
 }
 
 function handleEvent(event) {
 	eventMap
 		.get(event.currentTarget)
-		?.[event.type]?.call(event.currentTarget, event);
+		?.get(event.type)
+		?.call(event.currentTarget, event);
 }
 
-export function classes(obj) {
-	let list = [];
+function joiner(mapper, delimiter) {
+	return (obj) => {
+		let list = [];
 
-	for (let key in obj) {
-		if (obj[key]) {
-			list.push(key);
+		for (let key in obj) {
+			if (obj[key]) {
+				list.push(mapper(key, obj[key]));
+			}
 		}
-	}
 
-	return list.join(" ");
+		return list.join(delimiter);
+	};
 }
 
-export function styles(obj) {
-	let list = [];
-
-	for (let key in obj) {
-		if (obj[key]) {
-			list.push(`${key}: ${obj[key]}`);
-		}
-	}
-
-	return list.join("; ");
-}
+export let classes = joiner((key) => key, " ");
+export let styles = joiner((key, val) => `${key}: ${val}`, "; ");
