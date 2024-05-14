@@ -91,7 +91,6 @@ export default function todoApp(target) {
 		return html`
 			<li
 				class=${classes({
-					item: true,
 					entering: item.isEntering,
 					leaving: item.isLeaving,
 					done: item.isDone,

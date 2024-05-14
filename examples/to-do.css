@@ -63,26 +63,26 @@ to-do-app {
 	grid-template-columns: max-content min-content auto max-content;
 	grid-template-rows: max-content;
 	list-style: none;
-}
 
-.item {
-	align-items: center;
-	animation-duration: 0.125s;
-	animation-fill-mode: both;
-	background-color: oklch(1 0 0);
-	border-radius: 0.25em;
-	display: grid;
-	grid-column: 1 / -1;
-	grid-template-columns: subgrid;
-	padding-block: 0.25em;
-	padding-inline: 0.25em;
+	> * {
+		align-items: center;
+		animation-duration: 0.125s;
+		animation-fill-mode: both;
+		background-color: oklch(1 0 0);
+		border-radius: 0.25em;
+		display: grid;
+		grid-column: 1 / -1;
+		grid-template-columns: subgrid;
+		padding-block: 0.25em;
+		padding-inline: 0.25em;
 
-	:where(:not(a, button, input)) {
-		cursor: inherit;
-	}
+		:where(:not(a, button, input)) {
+			cursor: inherit;
+		}
 
-	&:where([draggable="true"]) {
-		cursor: move;
+		&:where([draggable="true"]) {
+			cursor: move;
+		}
 	}
 }
 
