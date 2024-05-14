@@ -92,9 +92,7 @@ export default function mineSweeper({height, width, mineCount}, target) {
 					style=${styles({"--column": x + 1, "--row": y + 1})}
 					aria-label=${square.isRevealed ? null : "Hidden"}
 					@click=${() => {
-						if (playState !== PLAY_STATES.PLAYING) {
-							return;
-						}
+						if (playState !== PLAY_STATES.PLAYING) return;
 
 						if (hiddenCount === height * width) {
 							let armed = [...board.values()]

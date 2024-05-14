@@ -61,9 +61,7 @@ export default function todoApp(target) {
 
 								let text = e.target.value.trim();
 
-								if (!text) {
-									return;
-								}
+								if (!text) return;
 
 								state.list.push({
 									text,
@@ -88,9 +86,7 @@ export default function todoApp(target) {
 	}
 
 	function itemView(item, index) {
-		if (!state.showDone && item.isDone && !item.isLeaving) {
-			return null;
-		}
+		if (!state.showDone && item.isDone && !item.isLeaving) return null;
 
 		return html`
 			<li
@@ -194,9 +190,7 @@ export default function todoApp(target) {
 	}
 
 	function clearDoneButtonView() {
-		if (!hasDone()) {
-			return null;
-		}
+		if (!hasDone()) return null;
 
 		return html`
 			<button
