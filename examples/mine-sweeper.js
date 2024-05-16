@@ -1,4 +1,4 @@
-import {html, render, classes, styles} from "../lib.js";
+import {html, render} from "../lib.js";
 
 const PLAY_STATES = {
 	PLAYING: 0,
@@ -78,18 +78,16 @@ export default function mineSweeper({height, width, mineCount}, target) {
 				<button
 					id=${`button-${x}-${y}`}
 					type="button"
-					class=${classes({
-						flagged: square.isFlagged,
-						revealed: square.isRevealed,
+					class=${[
+						square.isFlagged ? "flagged" : "",
+						square.isRevealed ? "revealed" : "",
 						...Array(9)
 							.keys()
-							.reduce((acc, i) => {
-								acc[`armed-adjacent-count--${i}`] = square.danger === i;
-
-								return acc;
-							}, {}),
-					})}
-					style=${styles({"--column": x + 1, "--row": y + 1})}
+							.map((i) =>
+								square.danger === i ? `armed-adjacent-count--${i}` : ""
+							),
+					].join(" ")}
+					style=${`--column: ${x + 1}; --row: ${y + 1}`}
 					aria-label=${square.isRevealed ? null : "Hidden"}
 					@click=${() => {
 						if (playState !== PLAY_STATES.PLAYING) return;

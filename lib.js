@@ -129,7 +129,7 @@ export function render(
 	{node, args},
 	element,
 	isSimilar = nodeMap.get(element) === node,
-	namespace = getNamespace(node)
+	namespace = namespaces[node?.name] ?? namespaces.html
 ) {
 	let document = element.ownerDocument;
 	let currentChild = element.firstChild;
@@ -194,18 +194,20 @@ export function render(
 
 		if (!currentChild || isDynamic) {
 			if (subNode.node.text != null) {
+				let text = String(subNode.node.text);
+
 				if (currentChild?.nodeType === 3) {
-					if (currentChild.nodeValue !== String(subNode.node.text)) {
-						currentChild.nodeValue = subNode.node.text;
+					if (currentChild.nodeValue !== text) {
+						currentChild.nodeValue = text;
 					}
 				} else {
-					newChild = document.createTextNode(subNode.node.text);
+					newChild = document.createTextNode(text);
 				}
 			} else {
 				let subIsSimilar = subNode.node.root
 					? nodeMap.get(currentChild) === subNode.node
 					: isSimilar;
-				let subNamespace = getNamespace(subNode.node, namespace);
+				let subNamespace = namespaces[subNode.node?.name] ?? namespace;
 
 				if (!subIsSimilar) {
 					newChild = document.createElementNS(subNamespace, subNode.node.name);
@@ -258,30 +260,9 @@ function* walkNodes({node, args}) {
 	}
 }
 
-function getNamespace(node, namespace = namespaces.html) {
-	return namespaces[node?.name] ?? namespace;
-}
-
 function handleEvent(event) {
 	eventMap
 		.get(event.currentTarget)
 		?.get(event.type)
 		?.call(event.currentTarget, event);
 }
-
-function joiner(mapper, delimiter) {
-	return (obj) => {
-		let list = [];
-
-		for (let key in obj) {
-			if (obj[key]) {
-				list.push(mapper(key, obj[key]));
-			}
-		}
-
-		return list.join(delimiter);
-	};
-}
-
-export let classes = joiner((key) => key, " ");
-export let styles = joiner((key, val) => `${key}: ${val}`, "; ");

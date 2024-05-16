@@ -1,4 +1,4 @@
-import {html, render, classes} from "../lib.js";
+import {html, render} from "../lib.js";
 
 export default function todoApp(target) {
 	let defaultState = {
@@ -90,12 +90,12 @@ export default function todoApp(target) {
 
 		return html`
 			<li
-				class=${classes({
-					entering: item.isEntering,
-					leaving: item.isLeaving,
-					done: item.isDone,
-					dragging: dragState.item === item,
-				})}
+				class=${[
+					item.isEntering ? "entering" : "",
+					item.isLeaving ? "leaving" : "",
+					item.isDone ? "done" : "",
+					dragState.item === item ? "dragging" : "",
+				].join(" ")}
 				draggable=${state.list.length > 1 ? "true" : null}
 				@dragstart=${(e) => {
 					dragState.item = item;
@@ -167,7 +167,7 @@ export default function todoApp(target) {
 					<svg viewBox="0 0 14 14">
 						<title>Delete</title>
 						<path
-							d="M3 0 L7 4 L11 0 L14 3 L10 7 L14 11 L11 14 L7 10 L3 14 L0 11 L4 7 L0 3 Z" />
+							d="M2.5 0.5 Q3 0 3.5 0.5 L7 4 L10.5 0.5 Q11 0 11.5 0.5 L13.5 2.5 Q14 3 13.5 3.5 L10 7 L13.5 10.5 Q14 11 13.5 11.5 L11.5 13.5 Q11 14 10.5 13.5 L7 10 L3.5 13.5 Q3 14 2.5 13.5 L0.5 11.5 Q0 11 0.5 10.5 L4 7 L0.5 3.5 Q0 3 0.5 2.5 Z"></path>
 					</svg>
 				</button>
 			</li>
