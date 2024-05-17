@@ -145,6 +145,8 @@ export function render(
 
 		if (typeof value === "number") {
 			current = args[value];
+		} else if (value === true) {
+			current = true;
 		} else {
 			current = "";
 
