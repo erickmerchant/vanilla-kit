@@ -160,10 +160,20 @@ export function render(
 		}
 
 		if (name.startsWith("@")) {
-			name = name.slice(1);
+			let parts = name.slice(1).split(".");
+			let options = {};
+
+			while (
+				parts.length &&
+				["capture", "once", "passive"].includes(parts[parts.length - 1])
+			) {
+				options[parts.pop()] = true;
+			}
+
+			name = parts.join(".");
 
 			if (!isSimilar) {
-				element.addEventListener(name, handleEvent);
+				element.addEventListener(name, handleEvent, options);
 			}
 
 			let events = eventMap.get(element) ?? new Map();
