@@ -159,8 +159,8 @@ export function render(
 			}
 		}
 
-		if (name.startsWith("@")) {
-			let parts = name.slice(1).split(".");
+		if (name.startsWith("on")) {
+			let parts = name.slice(2).split(".");
 			let options = {};
 
 			while (
@@ -181,9 +181,7 @@ export function render(
 			events.set(name, current);
 
 			eventMap.set(element, events);
-		} else if (name.startsWith(":")) {
-			name = name.slice(1);
-
+		} else if (namespace === namespaces.html && name in element) {
 			if (element[name] !== current) {
 				element[name] = current;
 			}

@@ -89,7 +89,7 @@ export default function mineSweeper({height, width, mineCount}, target) {
 					].join(" ")}
 					style=${`--column: ${x + 1}; --row: ${y + 1}`}
 					aria-label=${square.isRevealed ? null : "Hidden"}
-					@click=${() => {
+					onclick=${() => {
 						if (playState !== PLAY_STATES.PLAYING) return;
 
 						if (hiddenCount === height * width) {
@@ -173,7 +173,7 @@ export default function mineSweeper({height, width, mineCount}, target) {
 							update();
 						}
 					}}
-					@contextmenu=${(e) => {
+					oncontextmenu=${(e) => {
 						let square = board.get(y).get(x);
 
 						e.preventDefault();
@@ -186,7 +186,7 @@ export default function mineSweeper({height, width, mineCount}, target) {
 							update();
 						}
 					}}
-					@keydown=${(e) => {
+					onkeydown=${(e) => {
 						let keys = {
 							ArrowUp: [[x, y - 1]],
 							ArrowDown: [[x, y + 1]],
@@ -228,6 +228,8 @@ export default function mineSweeper({height, width, mineCount}, target) {
 
 	function updateTime() {
 		time = Math.floor((Date.now() - startTime) / 1000);
+
+		update();
 	}
 
 	function* getAdjacent(x, y) {
