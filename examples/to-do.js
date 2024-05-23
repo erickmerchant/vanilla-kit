@@ -36,8 +36,8 @@ export default function todoApp(target) {
 						class="show-done"
 						id="show-done"
 						type="checkbox"
-						checked=${state.showDone}
-						onchange=${(e) => {
+						.checked=${state.showDone}
+						@change=${(e) => {
 							let show = e.target.checked;
 
 							for (let item of state.list) {
@@ -55,7 +55,7 @@ export default function todoApp(target) {
 					<input
 						class="new-input"
 						placeholder="What do you have to do?"
-						onkeydown=${(e) => {
+						@keydown=${(e) => {
 							if (e.key === "Enter") {
 								e.preventDefault();
 
@@ -97,19 +97,19 @@ export default function todoApp(target) {
 					dragState.item === item ? "dragging" : "",
 				].join(" ")}
 				draggable=${state.list.length > 1 ? "true" : null}
-				ondragstart=${(e) => {
+				@dragstart=${(e) => {
 					dragState.item = item;
 
 					e.dataTransfer.effectAllowed = "move";
 
 					update();
 				}}
-				ondragend=${() => {
+				@dragend=${() => {
 					dragState.item = null;
 
 					update();
 				}}
-				ondragenter=${() => {
+				@dragenter=${() => {
 					if (dragState.item != null) {
 						let from = state.list.findIndex((t) => t === dragState.item);
 
@@ -119,16 +119,16 @@ export default function todoApp(target) {
 						update();
 					}
 				}}
-				ondragover=${(e) => {
+				@dragover=${(e) => {
 					e.preventDefault();
 				}}
-				ondragleave=${(e) => {
+				@dragleave=${(e) => {
 					e.preventDefault();
 				}}
-				ondrop=${(e) => {
+				@drop=${(e) => {
 					e.preventDefault();
 				}}
-				onanimationend=${() => {
+				@animationend=${() => {
 					item.isLeaving = false;
 					item.isEntering = false;
 
@@ -143,8 +143,8 @@ export default function todoApp(target) {
 				}}>
 				<input
 					type="checkbox"
-					checked=${item.isDone}
-					onchange=${() => {
+					.checked=${item.isDone}
+					@change=${() => {
 						if (!state.showDone && item.isDone) {
 							item.isLeaving = true;
 						}
@@ -158,7 +158,7 @@ export default function todoApp(target) {
 				<button
 					type="button"
 					class="delete"
-					onclick=${() => {
+					@click=${() => {
 						item.isLeaving = true;
 						item.isDeleted = true;
 
@@ -195,7 +195,7 @@ export default function todoApp(target) {
 			<button
 				type="button"
 				class="clear-done"
-				onclick=${() => {
+				@click=${() => {
 					for (let i = state.list.length - 1; i >= 0; i--) {
 						let item = state.list[i];
 

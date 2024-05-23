@@ -89,7 +89,7 @@ export default function mineSweeper({height, width, mineCount}, target) {
 					].join(" ")}
 					style=${`--column: ${x + 1}; --row: ${y + 1}`}
 					aria-label=${square.isRevealed ? null : "Hidden"}
-					onclick=${() => {
+					@click=${() => {
 						if (playState !== PLAY_STATES.PLAYING) return;
 
 						if (hiddenCount === height * width) {
@@ -173,7 +173,7 @@ export default function mineSweeper({height, width, mineCount}, target) {
 							update();
 						}
 					}}
-					oncontextmenu=${(e) => {
+					@contextmenu=${(e) => {
 						let square = board.get(y).get(x);
 
 						e.preventDefault();
@@ -186,7 +186,7 @@ export default function mineSweeper({height, width, mineCount}, target) {
 							update();
 						}
 					}}
-					onkeydown=${(e) => {
+					@keydown=${(e) => {
 						let keys = {
 							ArrowUp: [[x, y - 1]],
 							ArrowDown: [[x, y + 1]],

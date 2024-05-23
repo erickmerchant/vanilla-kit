@@ -159,8 +159,8 @@ export function render(
 			}
 		}
 
-		if (name.startsWith("on")) {
-			let parts = name.slice(2).split(".");
+		if (name.startsWith("@")) {
+			let parts = name.slice(1).split(".");
 			let options = {};
 
 			while (
@@ -181,20 +181,20 @@ export function render(
 			events.set(name, current);
 
 			eventMap.set(element, events);
-		} else if (namespace === namespaces.html && name in element) {
-			if (element[name] !== current) {
-				element[name] = current;
+		} else if (name.startsWith(".")) {
+			let prop = name.slice(1);
+
+			if (element[prop] !== current) {
+				element[prop] = current;
+			}
+		} else if (current !== null) {
+			if (current === true || current === false) {
+				element.toggleAttribute(name, current);
+			} else {
+				element.setAttribute(name, current);
 			}
 		} else {
-			if (current !== null) {
-				if (current === true || current === false) {
-					element.toggleAttribute(name, current);
-				} else {
-					element.setAttribute(name, current);
-				}
-			} else {
-				element.removeAttribute(name);
-			}
+			element.removeAttribute(name);
 		}
 	}
 
