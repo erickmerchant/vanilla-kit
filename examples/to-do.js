@@ -7,10 +7,10 @@ export default function todoApp(target) {
 	};
 	let savedState = localStorage.getItem("to-do-app");
 	let parsedState = savedState ? JSON.parse(savedState) : {};
-	let state = Object.assign(defaultState, parsedState);
+	let {showDone, list} = Object.assign(defaultState, parsedState);
 
-	let hasItems = () => state.list.length > 0;
-	let hasDone = () => state.list.some((item) => item.isDone);
+	let hasItems = () => list.length > 0;
+	let hasDone = () => list.some((item) => item.isDone);
 	let dragState = {item: null};
 
 	for (let type of ["dragover", "dragleave", "drop"]) {
@@ -26,28 +26,28 @@ export default function todoApp(target) {
 	function update() {
 		window.requestAnimationFrame(() => {
 			if (globalThis.localStorage) {
-				localStorage.setItem("to-do-app", JSON.stringify(state));
+				localStorage.setItem("to-do-app", JSON.stringify({showDone, list}));
 			}
 
-			return render(
+			render(
 				html`
 					<h1 class="title">To Do List</h1>
 					<input
 						class="show-done"
 						id="show-done"
 						type="checkbox"
-						.checked=${state.showDone}
+						.checked=${showDone}
 						@change=${(e) => {
 							let show = e.target.checked;
 
-							for (let item of state.list) {
+							for (let item of list) {
 								if (item.isDone) {
 									item.isEntering = show;
 									item.isLeaving = !show;
 								}
 							}
 
-							state.showDone = show;
+							showDone = show;
 
 							update();
 						}} />
@@ -63,7 +63,7 @@ export default function todoApp(target) {
 
 								if (!text) return;
 
-								state.list.push({
+								list.push({
 									text,
 									isDone: false,
 									isEntering: true,
@@ -76,7 +76,7 @@ export default function todoApp(target) {
 							}
 						}} />
 					<ol class="list">
-						${state.list.map(itemView)}
+						${list.map(itemView)}
 					</ol>
 					${footerView()}
 				`,
@@ -86,7 +86,7 @@ export default function todoApp(target) {
 	}
 
 	function itemView(item, index) {
-		if (!state.showDone && item.isDone && !item.isLeaving) return null;
+		if (!showDone && item.isDone && !item.isLeaving) return;
 
 		return html`
 			<li
@@ -96,7 +96,7 @@ export default function todoApp(target) {
 					item.isDone ? "done" : "",
 					dragState.item === item ? "dragging" : "",
 				].join(" ")}
-				draggable=${state.list.length > 1 ? "true" : null}
+				draggable=${list.length > 1 ? "true" : null}
 				@dragstart=${(e) => {
 					dragState.item = item;
 
@@ -111,10 +111,10 @@ export default function todoApp(target) {
 				}}
 				@dragenter=${() => {
 					if (dragState.item != null) {
-						let from = state.list.findIndex((t) => t === dragState.item);
+						let from = list.findIndex((t) => t === dragState.item);
 
-						state.list.splice(from, 1);
-						state.list.splice(index, 0, dragState.item);
+						list.splice(from, 1);
+						list.splice(index, 0, dragState.item);
 
 						update();
 					}
@@ -133,8 +133,8 @@ export default function todoApp(target) {
 					item.isEntering = false;
 
 					if (item.isDeleted) {
-						state.list.splice(
-							state.list.findIndex((itm) => itm === item),
+						list.splice(
+							list.findIndex((itm) => itm === item),
 							1
 						);
 					}
@@ -145,7 +145,7 @@ export default function todoApp(target) {
 					type="checkbox"
 					.checked=${item.isDone}
 					@change=${() => {
-						if (!state.showDone && item.isDone) {
+						if (!showDone && item.isDone) {
 							item.isLeaving = true;
 						}
 
@@ -175,10 +175,10 @@ export default function todoApp(target) {
 	}
 
 	function footerView() {
-		if (!hasItems()) return null;
+		if (!hasItems()) return;
 
-		let doneCount = state.list.filter((item) => item.isDone).length;
-		let totalCount = state.list.length;
+		let doneCount = list.filter((item) => item.isDone).length;
+		let totalCount = list.length;
 
 		return html`
 			<footer class="footer">
@@ -189,22 +189,22 @@ export default function todoApp(target) {
 	}
 
 	function clearDoneButtonView() {
-		if (!hasDone()) return null;
+		if (!hasDone()) return;
 
 		return html`
 			<button
 				type="button"
 				class="clear-done"
 				@click=${() => {
-					for (let i = state.list.length - 1; i >= 0; i--) {
-						let item = state.list[i];
+					for (let i = list.length - 1; i >= 0; i--) {
+						let item = list[i];
 
 						if (item.isDone) {
-							if (state.showDone) {
+							if (showDone) {
 								item.isLeaving = true;
 								item.isDeleted = true;
 							} else {
-								state.list.splice(i, 1);
+								list.splice(i, 1);
 							}
 						}
 					}

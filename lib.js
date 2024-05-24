@@ -21,7 +21,7 @@ export function html(strs, ...args) {
 		let attr;
 
 		for (let token of tokenize(...strs)) {
-			let {nodes, attrs} = stack[0];
+			let head = stack[0];
 			let dynamic = false;
 
 			if (typeof token === "number") {
@@ -46,19 +46,19 @@ export function html(strs, ...args) {
 					} while (item.name !== name);
 				} else if (token.startsWith?.("<")) {
 					mode = 1;
-					let prevDynamic = nodes[nodes.length - 1]?.dynamic;
+					let prevDynamic = head.nodes[head.nodes.length - 1]?.dynamic;
 
 					stack.unshift({
 						name: token.slice(1),
 						dynamic: prevDynamic ? true : dynamic,
-						attrs: [],
+						attributes: [],
 						nodes: [],
 						root: stack.length === 1,
 					});
 
-					nodes.push(stack[0]);
+					head.nodes.push(stack[0]);
 				} else {
-					nodes.push(token);
+					head.nodes.push(token);
 				}
 			} else if (mode === 1) {
 				if (token === ">") {
@@ -71,14 +71,32 @@ export function html(strs, ...args) {
 					mode = 2;
 				} else {
 					for (let name of token.trim().split(/\s+/)) {
-						attr = {name, value: true};
+						if (name.startsWith("@")) {
+							let parts = name.slice(1).split(".");
+							let options = {};
 
-						attrs.push(attr);
+							while (
+								parts.length &&
+								["capture", "once", "passive"].includes(parts[parts.length - 1])
+							) {
+								options[parts.pop()] = true;
+							}
+
+							name = parts.join(".");
+
+							attr = {type: 3, name, value: null, options};
+						} else if (name.startsWith(".")) {
+							attr = {type: 2, name: name.slice(1), value: true};
+						} else {
+							attr = {type: 1, name, value: true};
+						}
+
+						head.attributes.push(attr);
 					}
 				}
 			} else if (mode === 2) {
 				if (token === "'" || token === '"') {
-					attr.value = [];
+					attr.value = "";
 					quote = token;
 
 					mode = 3;
@@ -95,9 +113,9 @@ export function html(strs, ...args) {
 
 				quote = null;
 			} else {
-				attr.dynamic ||= dynamic;
+				if (dynamic) throw Error();
 
-				attr.value.push(token);
+				attr.value += token;
 			}
 
 			if (dynamic) {
@@ -138,7 +156,7 @@ export function render(
 		nodeMap.set(element, node);
 	}
 
-	for (let {name, value, dynamic} of node.attrs ?? []) {
+	for (let {type, name, options, value, dynamic} of node.attributes ?? []) {
 		if (isSimilar && !dynamic) continue;
 
 		let current;
@@ -148,30 +166,10 @@ export function render(
 		} else if (value === true) {
 			current = true;
 		} else {
-			current = "";
-
-			for (let v of value) {
-				if (typeof v === "number") {
-					v = args[v];
-				}
-
-				current += v;
-			}
+			current = value;
 		}
 
-		if (name.startsWith("@")) {
-			let parts = name.slice(1).split(".");
-			let options = {};
-
-			while (
-				parts.length &&
-				["capture", "once", "passive"].includes(parts[parts.length - 1])
-			) {
-				options[parts.pop()] = true;
-			}
-
-			name = parts.join(".");
-
+		if (type === 3) {
 			if (!isSimilar) {
 				element.addEventListener(name, handleEvent, options);
 			}
@@ -181,11 +179,9 @@ export function render(
 			events.set(name, current);
 
 			eventMap.set(element, events);
-		} else if (name.startsWith(".")) {
-			let prop = name.slice(1);
-
-			if (element[prop] !== current) {
-				element[prop] = current;
+		} else if (type === 2) {
+			if (element[name] !== current) {
+				element[name] = current;
 			}
 		} else if (current !== null) {
 			if (current === true || current === false) {
