@@ -58,7 +58,7 @@ export function html(strs, ...args) {
 
 					head.nodes.push(stack[0]);
 				} else {
-					head.nodes.push(token);
+					head.nodes.push({dynamic, value: token});
 				}
 			} else if (mode === 1) {
 				if (token === ">") {
@@ -161,10 +161,8 @@ export function render(
 
 		let current;
 
-		if (typeof value === "number") {
+		if (dynamic) {
 			current = args[value];
-		} else if (value === true) {
-			current = true;
 		} else {
 			current = value;
 		}
@@ -199,15 +197,15 @@ export function render(
 		let isDynamic = subNode.node?.dynamic;
 
 		if (!currentChild || isDynamic) {
-			if (subNode.node.text != null) {
-				let text = String(subNode.node.text);
+			if (subNode.node.value != null) {
+				let value = String(subNode.node.value);
 
 				if (currentChild?.nodeType === 3) {
-					if (currentChild.nodeValue !== text) {
-						currentChild.nodeValue = text;
+					if (currentChild.nodeValue !== value) {
+						currentChild.nodeValue = value;
 					}
 				} else {
-					newChild = document.createTextNode(text);
+					newChild = document.createTextNode(value);
 				}
 			} else {
 				let subIsSimilar = subNode.node.root
@@ -247,21 +245,19 @@ export function render(
 
 function* walkNodes({node, args}) {
 	for (let n of node.nodes) {
-		if (n.nodes) {
-			yield {node: n, args};
-		} else if (typeof n === "number") {
-			let value = args[n];
+		if (n.dynamic && n.value != null) {
+			let value = args[n.value];
 
 			for (let result of [].concat(value)) {
 				if (result == null) continue;
 				else if (result.node) {
 					yield* walkNodes(result);
 				} else {
-					yield {node: {dynamic: true, text: result}};
+					yield {node: {dynamic: true, value: result}};
 				}
 			}
 		} else {
-			yield {node: {dynamic: false, text: n}};
+			yield {node: n, args};
 		}
 	}
 }
