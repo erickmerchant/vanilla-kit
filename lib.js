@@ -49,6 +49,7 @@ export function html(strs, ...args) {
 					let prevDynamic = head.nodes[head.nodes.length - 1]?.dynamic;
 
 					stack.unshift({
+						type: 1,
 						name: token.slice(1),
 						dynamic: prevDynamic ? true : dynamic,
 						attributes: [],
@@ -58,7 +59,7 @@ export function html(strs, ...args) {
 
 					head.nodes.push(stack[0]);
 				} else {
-					head.nodes.push({dynamic, value: token});
+					head.nodes.push({type: 2, dynamic, value: token});
 				}
 			} else if (mode === 1) {
 				if (token === ">") {
@@ -147,7 +148,7 @@ export function render(
 	{node, args},
 	element,
 	isSimilar = nodeMap.get(element) === node,
-	namespace = namespaces[node?.name] ?? namespaces.html
+	namespace = namespaces[node.name] ?? namespaces.html
 ) {
 	let document = element.ownerDocument;
 	let currentChild = element.firstChild;
@@ -181,24 +182,24 @@ export function render(
 			if (element[name] !== current) {
 				element[name] = current;
 			}
-		} else if (current !== null) {
-			if (current === true || current === false) {
-				element.toggleAttribute(name, current);
+		} else {
+			if (current == null || current === true || current === false) {
+				element.toggleAttribute(name, !!current);
 			} else {
 				element.setAttribute(name, current);
 			}
-		} else {
-			element.removeAttribute(name);
 		}
 	}
 
-	for (let subNode of walkNodes({node, args})) {
+	let nodes = walkNodes({node, args});
+
+	for (let [node, args] of nodes) {
 		let newChild;
-		let isDynamic = subNode.node?.dynamic;
+		let isDynamic = node.dynamic;
 
 		if (!currentChild || isDynamic) {
-			if (subNode.node.value != null) {
-				let value = String(subNode.node.value);
+			if (node.type === 2) {
+				let value = String(node.value);
 
 				if (currentChild?.nodeType === 3) {
 					if (currentChild.nodeValue !== value) {
@@ -208,16 +209,21 @@ export function render(
 					newChild = document.createTextNode(value);
 				}
 			} else {
-				let subIsSimilar = subNode.node.root
-					? nodeMap.get(currentChild) === subNode.node
+				let subIsSimilar = node.root
+					? nodeMap.get(currentChild) === node
 					: isSimilar;
-				let subNamespace = namespaces[subNode.node?.name] ?? namespace;
+				let subNamespace = namespaces[node.name] ?? namespace;
 
 				if (!subIsSimilar) {
-					newChild = document.createElementNS(subNamespace, subNode.node.name);
+					newChild = document.createElementNS(subNamespace, node.name);
 				}
 
-				render(subNode, newChild ?? currentChild, subIsSimilar, subNamespace);
+				render(
+					{node, args},
+					newChild ?? currentChild,
+					subIsSimilar,
+					subNamespace
+				);
 			}
 		}
 
@@ -245,7 +251,7 @@ export function render(
 
 function* walkNodes({node, args}) {
 	for (let n of node.nodes) {
-		if (n.dynamic && n.value != null) {
+		if (n.dynamic && n.type === 2) {
 			let value = args[n.value];
 
 			for (let result of [].concat(value)) {
@@ -253,11 +259,11 @@ function* walkNodes({node, args}) {
 				else if (result.node) {
 					yield* walkNodes(result);
 				} else {
-					yield {node: {dynamic: true, value: result}};
+					yield [{...n, value: result}];
 				}
 			}
 		} else {
-			yield {node: n, args};
+			yield [n, args];
 		}
 	}
 }

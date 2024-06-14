@@ -57,12 +57,11 @@ export default function mineSweeper({height, width, mineCount}, target) {
 					role="grid">
 					${Array.from(
 						{length: height},
-						(_, y) =>
-							html`
-								<div role="row">
-									${Array.from({length: width}, (_, x) => squareView(x, y))}
-								</div>
-							`
+						(_, y) => html`
+							<div role="row">
+								${Array.from({length: width}, (_, x) => squareView(x, y))}
+							</div>
+						`
 					)}
 				</div>
 			`,
@@ -217,10 +216,10 @@ export default function mineSweeper({height, width, mineCount}, target) {
 							? "🚩"
 							: ""
 						: square.isFlagged && !square.isArmed
-						? "❌"
-						: square.isArmed
-						? "💥"
-						: square.danger || ""}
+							? "❌"
+							: square.isArmed
+								? "💥"
+								: square.danger || ""}
 				</button>
 			</div>
 		`;
