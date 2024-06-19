@@ -164,10 +164,10 @@ export default function todoApp(target) {
 
 						update();
 					}}>
-					<svg viewBox="0 0 14 14">
+					<svg viewBox="0 0 28 28">
 						<title>Delete</title>
 						<path
-							d="M2.5 0.5 Q3 0 3.5 0.5 L7 4 L10.5 0.5 Q11 0 11.5 0.5 L13.5 2.5 Q14 3 13.5 3.5 L10 7 L13.5 10.5 Q14 11 13.5 11.5 L11.5 13.5 Q11 14 10.5 13.5 L7 10 L3.5 13.5 Q3 14 2.5 13.5 L0.5 11.5 Q0 11 0.5 10.5 L4 7 L0.5 3.5 Q0 3 0.5 2.5 Z" />
+							d="M5 1 Q6 0 7 1 L14 8 L21 1 Q22 0 23 1 L27 5 Q28 6 27 7 L20 14 L27 21 Q28 22 27 23 L23 27 Q22 28 21 27 L14 20 L7 27 Q6 28 5 27 L1 23 Q0 22 1 21 L8 14 L1 7 Q0 6 1 5 Z" />
 					</svg>
 				</button>
 			</li>
