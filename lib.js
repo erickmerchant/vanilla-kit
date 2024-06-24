@@ -46,12 +46,11 @@ export function html(strs, ...args) {
 					} while (item.name !== name);
 				} else if (token.startsWith?.("<")) {
 					mode = 1;
-					let prevDynamic = head.nodes[head.nodes.length - 1]?.dynamic;
 
 					stack.unshift({
 						type: 1,
 						name: token.slice(1),
-						dynamic: prevDynamic ? true : dynamic,
+						dynamic: false,
 						attributes: [],
 						nodes: [],
 						root: stack.length === 1,
