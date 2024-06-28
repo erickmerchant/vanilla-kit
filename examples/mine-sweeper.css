@@ -21,7 +21,7 @@ body {
 mine-sweeper {
 	font-family: ui-monospace, monospace;
 	font-weight: bold;
-	inline-size: calc(2.5em * var(--inline-size));
+	inline-size: calc(2.5em * var(--width));
 
 	:where(.info-panel) {
 		display: flex;
@@ -49,7 +49,7 @@ mine-sweeper {
 		display: grid;
 		gap: 1px;
 		grid-auto-rows: auto;
-		grid-template-columns: repeat(var(--inline-size), 1fr);
+		grid-template-columns: repeat(var(--width), 1fr);
 		inline-size: 100%;
 	}
 

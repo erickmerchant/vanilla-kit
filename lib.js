@@ -1,275 +1,278 @@
-let htmlMap = new WeakMap();
-let nodeMap = new WeakMap();
-let eventMap = new WeakMap();
-let tokensRegex = /(<!--|-->|<[\w-]+|<\/[\w-]+>|\/>|[\'\"=>])/;
-let namespaces = {
-	html: "http://www.w3.org/1999/xhtml",
-	svg: "http://www.w3.org/2000/svg",
-	math: "http://www.w3.org/1998/Math/MathML",
-};
+let currentCallback;
+let effectScheduled = false;
+let effectQueue = [];
+let reads = new WeakMap();
 
-export function html(strs, ...args) {
-	let node = htmlMap.get(strs);
+class Element {
+	constructor(element) {
+		this.element = new WeakRef(element);
+	}
 
-	if (!node) {
-		node = {nodes: []};
+	deref() {
+		return this.element.deref();
+	}
 
-		let stack = [node];
-		let mode = 0;
-		let comment = false;
-		let quote;
-		let attr;
+	#chain(cb, ...args) {
+		let element = this.deref();
 
-		for (let token of tokenize(...strs)) {
-			let head = stack[0];
-			let dynamic = false;
+		if (element != null) {
+			cb(element, ...args);
+		}
 
-			if (typeof token === "number") {
-				dynamic = true;
-			} else if (!token.trim()) {
-				continue;
-			}
+		return this;
+	}
 
-			if (comment) {
-				if (token === "-->") {
-					comment = false;
+	attr(...args) {
+		return this.#chain(
+			(element, name, value) => {
+				mutation((element) => {
+					let current = typeof value === "function" ? value() : value;
+
+					if (current == null || current === true || current === false) {
+						element.toggleAttribute(name, !!current);
+					} else {
+						element.setAttribute(name, current);
+					}
+				}, element);
+			},
+			...args
+		);
+	}
+
+	prop(...args) {
+		return this.#chain(
+			(element, name, value) => {
+				mutation((element) => {
+					let current = typeof value === "function" ? value() : value;
+
+					if (element[name] !== current) {
+						element[name] = current;
+					}
+				}, element);
+			},
+			...args
+		);
+	}
+
+	classes(...args) {
+		return this.#chain(
+			(element, ...values) => {
+				for (let value of values) {
+					if (typeof value === "string") {
+						value = {[value]: true};
+					}
+
+					for (let [name, v] of Object.entries(value)) {
+						mutation((element) => {
+							let current = typeof v === "function" ? v() : v;
+
+							element.classList.toggle(name, !!current);
+						}, element);
+					}
 				}
-			} else if (mode == 0) {
-				if (token === "<!--") {
-					comment = true;
-				} else if (token.startsWith?.("</")) {
-					let item;
-					let name = token.slice(2, -1);
+			},
+			...args
+		);
+	}
 
-					do {
-						item = stack.shift();
-					} while (item.name !== name);
-				} else if (token.startsWith?.("<")) {
-					mode = 1;
+	styles(...args) {
+		return this.#chain(
+			(element, values) => {
+				for (let [name, v] of Object.entries(values)) {
+					mutation((element) => {
+						let current = typeof v === "function" ? v() : v;
 
-					stack.unshift({
-						type: 1,
-						name: token.slice(1),
-						dynamic: false,
-						attributes: [],
-						nodes: [],
-						root: stack.length === 1,
-					});
-
-					head.nodes.push(stack[0]);
-				} else {
-					head.nodes.push({type: 2, dynamic, value: token});
+						element.style.setProperty(name, current);
+					}, element);
 				}
-			} else if (mode === 1) {
-				if (token === ">") {
-					mode = 0;
-				} else if (token === "/>") {
-					mode = 0;
+			},
+			...args
+		);
+	}
 
-					stack.shift();
-				} else if (token === "=") {
-					mode = 2;
-				} else {
-					for (let name of token.trim().split(/\s+/)) {
-						if (name.startsWith("@")) {
-							let parts = name.slice(1).split(".");
-							let options = {};
+	data(...args) {
+		return this.#chain(
+			(element, values) => {
+				for (let [name, v] of Object.entries(values)) {
+					mutation((element) => {
+						let current = typeof v === "function" ? v() : v;
 
-							while (
-								parts.length &&
-								["capture", "once", "passive"].includes(parts[parts.length - 1])
-							) {
-								options[parts.pop()] = true;
-							}
-
-							name = parts.join(".");
-
-							attr = {type: 3, name, value: null, options};
-						} else if (name.startsWith(".")) {
-							attr = {type: 2, name: name.slice(1), value: true};
-						} else {
-							attr = {type: 1, name, value: true};
+						if (element.dataset[name] !== current) {
+							element.dataset[name] = current;
 						}
+					}, element);
+				}
+			},
+			...args
+		);
+	}
 
-						head.attributes.push(attr);
+	on(...args) {
+		return this.#chain(
+			(element, key, ...value) => {
+				for (let k of [].concat(key)) {
+					element.addEventListener(k, ...value);
+				}
+			},
+			...args
+		);
+	}
+
+	children(...args) {
+		return this.#chain(
+			(element, ...children) => {
+				for (let child of children) {
+					if (typeof child === "function") {
+						let document = element.ownerDocument;
+						let [start, end] = [
+							document.createComment(""),
+							document.createComment(""),
+						];
+
+						element.append(start, end);
+
+						mutation(
+							(start, end) => {
+								let currentChild = start.nextSibling;
+
+								while (currentChild) {
+									if (currentChild === end) {
+										break;
+									}
+
+									let nextChild = currentChild.nextSibling;
+
+									currentChild.remove();
+
+									currentChild = nextChild;
+								}
+
+								let newChild = child();
+
+								newChild =
+									newChild instanceof Element ? newChild.deref() : newChild;
+
+								if (newChild != null) {
+									start.after(newChild);
+								}
+							},
+							start,
+							end
+						);
+					} else if (child != null) {
+						child = child instanceof Element ? child.deref() : child;
+
+						if (child != null) {
+							element.append(child);
+						}
 					}
 				}
-			} else if (mode === 2) {
-				if (token === "'" || token === '"') {
-					attr.value = "";
-					quote = token;
-
-					mode = 3;
-				} else if (dynamic) {
-					attr.value = token;
-					attr.dynamic = true;
-
-					mode = 1;
-				} else {
-					throw Error();
-				}
-			} else if (token === quote) {
-				mode = 1;
-
-				quote = null;
-			} else {
-				if (dynamic) throw Error();
-
-				attr.value += token;
-			}
-
-			if (dynamic) {
-				for (let s of stack) {
-					if (s.dynamic) break;
-
-					s.dynamic = true;
-				}
-			}
-		}
-
-		htmlMap.set(strs, node);
-	}
-
-	return {node, args};
-}
-
-function* tokenize(...strs) {
-	for (let i = 0; i < strs.length; i++) {
-		yield* strs[i].split(tokensRegex);
-
-		if (i < strs.length - 1) {
-			yield i;
-		}
+			},
+			...args
+		);
 	}
 }
 
-export function render(
-	{node, args},
-	element,
-	isSimilar = nodeMap.get(element) === node,
-	namespace = namespaces[node.name] ?? namespaces.html
-) {
-	let document = element.ownerDocument;
-	let currentChild = element.firstChild;
+export function watch(object) {
+	reads.set(object, new Map());
 
-	if (node.root && !isSimilar) {
-		nodeMap.set(element, node);
-	}
+	return new Proxy(object, {set, get});
+}
 
-	for (let {type, name, options, value, dynamic} of node.attributes ?? []) {
-		if (isSimilar && !dynamic) continue;
+export function effect(callback) {
+	let prevCallback = currentCallback;
 
-		let current;
+	currentCallback = callback;
 
-		if (dynamic) {
-			current = args[value];
-		} else {
-			current = value;
-		}
+	callback();
 
-		if (type === 3) {
-			if (!isSimilar) {
-				element.addEventListener(name, handleEvent, options);
-			}
+	currentCallback = prevCallback;
+}
 
-			let events = eventMap.get(element) ?? new Map();
+export let html = h("html", "http://www.w3.org/1999/xhtml");
+export let svg = h("svg", "http://www.w3.org/2000/svg");
+export let math = h("math", "http://www.w3.org/1998/Math/MathML");
 
-			events.set(name, current);
-
-			eventMap.set(element, events);
-		} else if (type === 2) {
-			if (element[name] !== current) {
-				element[name] = current;
-			}
-		} else {
-			if (current == null || current === true || current === false) {
-				element.toggleAttribute(name, !!current);
-			} else {
-				element.setAttribute(name, current);
-			}
-		}
-	}
-
-	let nodes = walkNodes({node, args});
-
-	for (let [node, args] of nodes) {
-		let newChild;
-		let isDynamic = node.dynamic;
-
-		if (!currentChild || isDynamic) {
-			if (node.type === 2) {
-				let value = String(node.value);
-
-				if (currentChild?.nodeType === 3) {
-					if (currentChild.nodeValue !== value) {
-						currentChild.nodeValue = value;
+export function $(...target) {
+	return new Proxy(
+		target.map((t) => {
+			return new Element(t);
+		}),
+		{
+			get(target, key, proxy) {
+				return (...args) => {
+					for (let t of target) {
+						t[key](...args);
 					}
-				} else {
-					newChild = document.createTextNode(value);
-				}
-			} else {
-				let subIsSimilar = node.root
-					? nodeMap.get(currentChild) === node
-					: isSimilar;
-				let subNamespace = namespaces[node.name] ?? namespace;
 
-				if (!subIsSimilar) {
-					newChild = document.createElementNS(subNamespace, node.name);
-				}
-
-				render(
-					{node, args},
-					newChild ?? currentChild,
-					subIsSimilar,
-					subNamespace
-				);
-			}
+					return proxy;
+				};
+			},
 		}
-
-		if (newChild) {
-			if (currentChild) {
-				currentChild.replaceWith(newChild);
-			} else {
-				element.append(newChild);
-			}
-
-			currentChild = newChild;
-		}
-
-		currentChild = currentChild?.nextSibling;
-	}
-
-	while (currentChild) {
-		let nextChild = currentChild.nextSibling;
-
-		currentChild.remove();
-
-		currentChild = nextChild;
-	}
+	);
 }
 
-function* walkNodes({node, args}) {
-	for (let n of node.nodes) {
-		if (n.dynamic && n.type === 2) {
-			let value = args[n.value];
+function get(o, key, r) {
+	if (currentCallback) {
+		let callbacks = reads.get(o).get(key);
 
-			for (let result of [].concat(value)) {
-				if (result == null) continue;
-				else if (result.node) {
-					yield* walkNodes(result);
-				} else {
-					yield [{...n, value: result}];
-				}
-			}
-		} else {
-			yield [n, args];
+		if (!callbacks) {
+			callbacks = new Set();
+			reads.get(o).set(key, callbacks);
 		}
+
+		callbacks.add(currentCallback);
 	}
+
+	return Reflect.get(o, key, r);
 }
 
-function handleEvent(event) {
-	eventMap
-		.get(event.currentTarget)
-		?.get(event.type)
-		?.call(event.currentTarget, event);
+function set(o, key, value, r) {
+	let callbacks = reads.get(o).get(key);
+
+	if (callbacks) {
+		effectQueue.push(...callbacks);
+
+		if (!effectScheduled) {
+			effectScheduled = true;
+
+			setTimeout(() => {
+				effectScheduled = false;
+
+				for (let callback of new Set(effectQueue.splice(0, Infinity))) {
+					effect(callback);
+				}
+			}, 0);
+		}
+
+		callbacks.clear();
+	}
+
+	return Reflect.set(o, key, value, r);
+}
+
+function mutation(callback, ...args) {
+	let refs = args.map((arg) => new WeakRef(arg));
+
+	effect(() => {
+		let derefs = refs.map((ref) => ref.deref());
+
+		if (derefs.some((arg) => arg == null)) {
+			return;
+		}
+
+		callback(...derefs);
+	});
+}
+
+function h(name, namespace) {
+	let root = (n = name) => {
+		return new Element(globalThis.document.createElementNS(namespace, n));
+	};
+
+	return new Proxy(root, {
+		get(_, name) {
+			return () => root(name);
+		},
+	});
 }
