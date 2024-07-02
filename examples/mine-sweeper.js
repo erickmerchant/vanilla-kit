@@ -263,9 +263,7 @@ function range(n) {
 }
 
 export class MineSweeper extends HTMLElement {
-	constructor() {
-		super();
-
+	connectedCallback() {
 		let width = +this.getAttribute("width");
 		let height = +this.getAttribute("height");
 		let mineCount = +this.getAttribute("mine-count");
