@@ -2,14 +2,21 @@ let currentCallback;
 let effectScheduled = false;
 let effectQueue = [];
 let reads = new WeakMap();
+let values = new WeakMap();
 
 class Element {
+	#_element;
+
 	constructor(element) {
-		this.element = new WeakRef(element);
+		this.element = element;
 	}
 
-	deref() {
-		return this.element.deref();
+	get element() {
+		return this.#_element?.deref();
+	}
+
+	set element(element) {
+		this.#_element = new WeakRef(element);
 	}
 
 	#chain(cb, ...args) {
@@ -218,13 +225,20 @@ function get(o, key, r) {
 
 		if (!callbacks) {
 			callbacks = new Set();
+
 			reads.get(o).set(key, callbacks);
 		}
 
 		callbacks.add(currentCallback);
 	}
 
-	return Reflect.get(o, key, r);
+	let value = Reflect.get(o, key, r);
+
+	if (typeof value === "symbol" && values.has(value)) {
+		value = values.get(value);
+	}
+
+	return value;
 }
 
 function set(o, key, value, r) {
@@ -246,6 +260,14 @@ function set(o, key, value, r) {
 		}
 
 		callbacks.clear();
+	}
+
+	if (typeof value === "object") {
+		let symbol = Symbol("");
+
+		values.set(symbol, value);
+
+		value = symbol;
 	}
 
 	return Reflect.set(o, key, value, r);
