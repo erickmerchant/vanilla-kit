@@ -20,7 +20,7 @@ class Element {
 	}
 
 	#chain(cb, ...args) {
-		let element = this.deref();
+		let element = this.element;
 
 		if (element != null) {
 			cb(element, ...args);
