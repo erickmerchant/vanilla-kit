@@ -157,7 +157,7 @@ class Element {
 								let newChild = child();
 
 								newChild =
-									newChild instanceof Element ? newChild.deref() : newChild;
+									newChild instanceof Element ? newChild.element : newChild;
 
 								if (newChild != null) {
 									start.after(newChild);
@@ -167,7 +167,7 @@ class Element {
 							end
 						);
 					} else if (child != null) {
-						child = child instanceof Element ? child.deref() : child;
+						child = child instanceof Element ? child.element : child;
 
 						if (child != null) {
 							element.append(child);
