@@ -12,18 +12,13 @@ If Signals land in browsers in the near future, they will be used as the underly
 
 ```javascript
 let state = watch({
-	hasError: false,
-	name: "World"
-	list: watch([
-		"a",
-		"b",
-		"c"
-	])
-})
+	a: 123,
+	b: "abc",
+});
 
 effect(() => {
 	localStorage.setItem("my-state", JSON.stringify(state));
-})
+});
 ```
 
 ### `html`, `svg`, and `math`
@@ -39,34 +34,6 @@ let {div} = html;
 
 div();
 ```
-
-### `mixin`
-
-In order to be fully tree-shakeable you must declare what methods you'll use from the fluent interface.
-
-For instance this will throw an error, because we haven't said we need `classes`.
-
-```javascript
-import {html} from "vanilla-kit";
-
-let {div} = html;
-
-div().classes("my-div");
-```
-
-But this will work:
-
-```javascript
-import {html, classes, mixin} from "vanilla-kit";
-
-let {div} = html;
-
-mixin({classes});
-
-div().classes("my-div");
-```
-
-In this way you're forced to import nearly everything you'll use, but if you use for instance rollup then you won't end up with unused code.
 
 ### `node.attr`, `node.prop`, `node.on`, `node.classes`, `node.styles`, and `node.data`
 
