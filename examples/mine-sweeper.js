@@ -40,10 +40,10 @@ export default function mineSweeper({height, width, mineCount}, target) {
 			.attr("aria-colcount", width)
 			.attr("role", "grid")
 			.children(
-				...range(height).map((y) =>
+				range(height).map((y) =>
 					div()
 						.attr("role", "row")
-						.children(...range(width).map((x) => squareView(x, y)))
+						.children(range(width).map((x) => squareView(x, y)))
 				)
 			)
 	);
@@ -66,7 +66,7 @@ export default function mineSweeper({height, width, mineCount}, target) {
 					revealed: () => square.isRevealed,
 					flagged: () => square.isFlagged,
 				},
-				...range(8).map((i) => {
+				range(8).map((i) => {
 					return {
 						[`armed-adjacent-count--${i}`]: () =>
 							square.armedAdjacentCount === i,

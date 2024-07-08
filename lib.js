@@ -64,7 +64,7 @@ class Element {
 	classes(...args) {
 		return this.#chain(
 			(element, ...values) => {
-				for (let value of values) {
+				for (let value of values.flat(Infinity)) {
 					if (value == null) continue;
 
 					if (typeof value === "string") {
@@ -130,7 +130,7 @@ class Element {
 	children(...args) {
 		return this.#chain(
 			(element, ...children) => {
-				for (let child of children) {
+				for (let child of children.flat(Infinity)) {
 					if (typeof child === "function") {
 						let document = element.ownerDocument;
 						let [start, end] = [
