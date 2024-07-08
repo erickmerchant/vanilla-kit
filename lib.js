@@ -5,18 +5,18 @@ let reads = new WeakMap();
 let values = new WeakMap();
 
 class Element {
-	#_element;
+	#element;
 
 	constructor(element) {
 		this.element = element;
 	}
 
 	get element() {
-		return this.#_element?.deref();
+		return this.#element?.deref();
 	}
 
 	set element(element) {
-		this.#_element = new WeakRef(element);
+		this.#element = new WeakRef(element);
 	}
 
 	#chain(cb, ...args) {
@@ -65,6 +65,8 @@ class Element {
 		return this.#chain(
 			(element, ...values) => {
 				for (let value of values) {
+					if (value == null) continue;
+
 					if (typeof value === "string") {
 						value = {[value]: true};
 					}
