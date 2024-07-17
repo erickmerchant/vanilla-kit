@@ -11,7 +11,7 @@
 }
 
 body {
-	background-color: oklch(99.9% 0 0);
+	background-color: oklab(99.9% 0 0);
 	block-size: 100vh;
 	display: grid;
 	font-family: system-ui, sans-serif;
@@ -45,7 +45,7 @@ mine-sweeper {
 	}
 
 	:where([role="grid"]) {
-		background-color: oklch(80% 0 0);
+		background-color: oklab(80% 0 0);
 		display: grid;
 		gap: 1px;
 		grid-auto-rows: auto;
@@ -60,9 +60,9 @@ mine-sweeper {
 	:where(button) {
 		appearance: none;
 		aspect-ratio: 1;
-		background-color: oklch(80% 0 0);
+		background-color: oklab(80% 0 0);
 		block-size: 100%;
-		border: 0.3em outset oklch(90% 0 0);
+		border: 0.3em outset oklab(90% 0 0);
 		font-size: 1em;
 		font-weight: bold;
 		grid-column: var(--column);
@@ -70,8 +70,8 @@ mine-sweeper {
 		inline-size: 100%;
 
 		&:where(.revealed) {
-			background-color: oklch(90% 0 0);
-			border-color: oklch(0% 0 0 / 0);
+			background-color: oklab(95% 0 0);
+			border-color: oklab(0% 0 0 / 0);
 		}
 
 		&:where(.armed-adjacent-count--1) {
