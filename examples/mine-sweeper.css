@@ -75,39 +75,35 @@ mine-sweeper {
 		}
 
 		&:where(.armed-adjacent-count--1) {
-			color: oklch(60% 0.2 120);
+			color: oklab(60% 0 -0.2);
 		}
 
 		&:where(.armed-adjacent-count--2) {
-			color: oklch(60% 0.2 90);
+			color: oklab(60% -0.2 -0.2);
 		}
 
 		&:where(.armed-adjacent-count--3) {
-			color: oklch(60% 0.2 60);
+			color: oklab(60% -0.2 0);
 		}
 
 		&:where(.armed-adjacent-count--4) {
-			color: oklch(60% 0.2 30);
+			color: oklab(60% -0.2 0.4);
 		}
 
 		&:where(.armed-adjacent-count--5) {
-			color: oklch(60% 0.2 0);
+			color: oklab(60% 0 0.4);
 		}
 
 		&:where(.armed-adjacent-count--6) {
-			color: oklch(60% 0.2 330);
+			color: oklab(60% 0.4 0.4);
 		}
 
 		&:where(.armed-adjacent-count--7) {
-			color: oklch(60% 0.2 300);
+			color: oklab(60% 0.4 0);
 		}
 
 		&:where(.armed-adjacent-count--8) {
-			color: oklch(60% 0.2 270);
-		}
-
-		&:where(.flagged.revealed:not(.armed-state)) {
-			--content: ;
+			color: oklab(60% 0.4 -0.4);
 		}
 	}
 }
