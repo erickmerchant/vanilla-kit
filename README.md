@@ -1,6 +1,6 @@
 # vanilla-kit
 
-A tiny front-end framework using a fluent interface for constructing UI. Also has shallow reactivity. Only about **1 kB** minified and compressed. Also it's fully tree-shakeable if you use a bundler like rollup. Use or download it from [jsDelivr](https://cdn.jsdelivr.net/gh/erickmerchant/vanilla-kit/lib.min.js) and add it to your import map. See the examples directory for usage.
+A tiny front-end framework using a fluent interface for constructing UI. Also has shallow reactivity. Only about **1 kB** minified and compressed. Also it's fully tree-shakeable if you use a bundler like rollup. Use or download it from [jsDelivr](https://cdn.jsdelivr.net/gh/erickmerchant/vanilla-kit/lib.min.js) and add it to your import map.
 
 ## API
 
@@ -93,38 +93,9 @@ function nameView() {
 }
 ```
 
-### `attr`, `prop`, `on`, `classes`, `styles`, `data`, `children`
-
-The above mentioned methods can also be used outside the fluent interface. In those forms they take a DOM element as their first argument. For example:
-
-```javascript
-import {classes, watch} from "vanilla-kit";
-
-let state = watch({
-	a: true,
-	b: false,
-	c: false,
-});
-let element = document.querySelector("#my-element");
-
-classes(element, {
-	a: () => state.a,
-	b: () => state.b,
-	c: () => state.c,
-});
-```
-
-And if that contrived example is tree-shaken you should just end up with the code for classes, and the reactive API, which will be far less than 1.5 kB.
-
-Use `children` in this form once you have constructed everything, to put it into your document.
-
-```javascript
-children(target, div().children("I'm a div"));
-```
-
 `$`
 
-Alternatively you can use the `$` export. You can pass it multiple elements, and it will wrap each in the same fluent interface of any constructed element. It returns a proxy that will call the fluent methods on each element you passed in. It's not possible to pass dollar wrapped elements to children.
+Alternatively you can use the `$` export. You can pass it multiple elements, and it will wrap each in the same fluent interface of any constructed element. It returns a proxy that will call the fluent methods on each element you passed in. Use `children` in this form once you have constructed everything, to put it into your document. It's not possible to pass dollar wrapped elements to children.
 
 ```javascript
 $(target).children(div().children("I'm a div"));
