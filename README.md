@@ -1,14 +1,12 @@
 # vanilla-kit
 
-A tiny front-end framework using a fluent interface for constructing UI. Also has shallow reactivity. Only about **1 kB** minified and compressed. Use or download it from [jsDelivr](https://cdn.jsdelivr.net/gh/erickmerchant/vanilla-kit/lib.min.js) and add it to your import map.
+A tiny front-end framework using a fluent interface for constructing UI. Also has shallow reactivity. Only about **1.25 kB** minified and compressed. Use or download it from [jsDelivr](https://cdn.jsdelivr.net/gh/erickmerchant/vanilla-kit/lib.min.js) and add it to your import map.
 
 ## API
 
 ### `watch` and `effect`
 
-The reactivity API. `watch` will make an object reactive so that any time a property changes any effects that read that prop are rerun. `effect` is for effects that are not part of the DOM. For instance setting localStorage.
-
-If Signals land in browsers in the near future, they will be used as the underlying mechanism of the reactive API.
+The reactivity API. `watch` will make an object reactive so that any time a property changes any effects that read that prop are rerun. `effect` is for effects that are not part of the DOM. For instance setting localStorage. It's also used internally for DOM effects too.
 
 ```javascript
 let state = watch({
@@ -21,18 +19,16 @@ effect(() => {
 });
 ```
 
-### `html`, `svg`, and `math`
+### `create`
 
-These three are proxies for getting functions to call to construct DOM elements. There are three seperate proxies, because they each have a specific namespace that must be used when creating elements.
+Create a DOM element.
 
 For example:
 
 ```javascript
-import {html} from "vanilla-kit";
+import {create} from "vanilla-kit";
 
-let {div} = html;
-
-div();
+create("div")
 ```
 
 ### `node.attr`, `node.prop`, `node.on`, `node.classes`, `node.styles`, and `node.data`
@@ -40,7 +36,7 @@ div();
 These are part of the fluent interface, and are all ways of defining props, attributes, and events.
 
 ```javascript
-form()
+create("form")
 	.classes("my-form", {
 		error: () => state.hasError,
 	})
@@ -63,15 +59,15 @@ form()
 			state.hasError = true;
 		}
 	})
-	.children(
-		button()
+	.append(
+		create("button")
 			.prop("type", "button")
 			.prop("disabled", () => state.disabled)
 			.styles({color: () => (state.hasError ? "red" : "green")})
 			.on("click", () => {
 				state.disabled = true;
 			})
-			.children("Submit")
+			.text("Submit")
 	);
 ```
 
@@ -79,26 +75,24 @@ With the exception of `node.on`, because it already takes a closure as an argume
 
 `node.on` can also take an array as its first argument to attach a handler to multiple events, and it accepts an optional third argument just like addEventListener.
 
-### `node.children`
+### `node.append`, '`node.text`, and `node.map`
 
-`children` is the way to add children to a node.
-
-For instance in this example you construct a div with two children. The first is a span with the literal string "hello", and the second a closure that provides a span with a value from state. When `state.name` updates just that place in the DOM will update.
+All the ways to add children. The `node.map` API is not stable yet.
 
 ```javascript
-div().children(div().children("hello "), () => (state.name ? nameView : null));
+create("div").append(create("div").text("hello "), () => (state.name ? nameView : null));
 
 function nameView() {
-	return span().children(state.name);
+	return create("span").text(state.name);
 }
 ```
 
-`$`
+`adopt`
 
-Alternatively you can use the `$` export. You can pass it multiple elements, and it will wrap each in the same fluent interface of any constructed element. It returns a proxy that will call the fluent methods on each element you passed in. Use `children` in this form once you have constructed everything, to put it into your document. It's not possible to pass dollar wrapped elements to children.
+The `adopt` export is used primarily when mounting your view to the DOM.
 
 ```javascript
-$(target).children(div().children("I'm a div"));
+adopt(target).append(create("div").text("I'm a div"));
 ```
 
 ## Prior Art

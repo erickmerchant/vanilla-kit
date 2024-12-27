@@ -1,184 +1,30 @@
-let currentCallback;
-let effectScheduled = false;
-let effectQueue = [];
+let current;
+let queue = [];
 let reads = new WeakMap();
-let values = new WeakMap();
+let registered = new WeakSet();
+let scheduled = false;
 
-class Element {
-	#element;
+export function effect(callback) {
+	queue.push(callback);
 
-	constructor(element) {
-		this.element = element;
-	}
+	if (!scheduled) {
+		scheduled = true;
 
-	get element() {
-		return this.#element?.deref();
-	}
+		setTimeout(() => {
+			scheduled = false;
 
-	set element(element) {
-		this.#element = new WeakRef(element);
-	}
+			let callbacks = queue.splice(0, Infinity);
 
-	#chain(cb, ...args) {
-		let element = this.element;
+			let prev = current;
 
-		if (element != null) {
-			cb(element, ...args);
-		}
+			for (let cb of callbacks) {
+				current = cb;
 
-		return this;
-	}
+				cb();
+			}
 
-	attr(...args) {
-		return this.#chain(
-			(element, name, value) => {
-				mutation((element) => {
-					let current = typeof value === "function" ? value() : value;
-
-					if (current == null || current === true || current === false) {
-						element.toggleAttribute(name, !!current);
-					} else {
-						element.setAttribute(name, current);
-					}
-				}, element);
-			},
-			...args
-		);
-	}
-
-	prop(...args) {
-		return this.#chain(
-			(element, name, value) => {
-				mutation((element) => {
-					let current = typeof value === "function" ? value() : value;
-
-					if (element[name] !== current) {
-						element[name] = current;
-					}
-				}, element);
-			},
-			...args
-		);
-	}
-
-	classes(...args) {
-		return this.#chain(
-			(element, ...values) => {
-				for (let value of values.flat(Infinity)) {
-					if (value == null) continue;
-
-					if (typeof value === "string") {
-						value = {[value]: true};
-					}
-
-					for (let [name, v] of Object.entries(value)) {
-						mutation((element) => {
-							let current = typeof v === "function" ? v() : v;
-
-							element.classList.toggle(name, !!current);
-						}, element);
-					}
-				}
-			},
-			...args
-		);
-	}
-
-	styles(...args) {
-		return this.#chain(
-			(element, values) => {
-				for (let [name, v] of Object.entries(values)) {
-					mutation((element) => {
-						let current = typeof v === "function" ? v() : v;
-
-						element.style.setProperty(name, current);
-					}, element);
-				}
-			},
-			...args
-		);
-	}
-
-	data(...args) {
-		return this.#chain(
-			(element, values) => {
-				for (let [name, v] of Object.entries(values)) {
-					mutation((element) => {
-						let current = typeof v === "function" ? v() : v;
-
-						if (element.dataset[name] !== current) {
-							element.dataset[name] = current;
-						}
-					}, element);
-				}
-			},
-			...args
-		);
-	}
-
-	on(...args) {
-		return this.#chain(
-			(element, key, ...value) => {
-				for (let k of [].concat(key)) {
-					element.addEventListener(k, ...value);
-				}
-			},
-			...args
-		);
-	}
-
-	children(...args) {
-		return this.#chain(
-			(element, ...children) => {
-				for (let child of children.flat(Infinity)) {
-					if (typeof child === "function") {
-						let document = element.ownerDocument;
-						let [start, end] = [
-							document.createComment(""),
-							document.createComment(""),
-						];
-
-						element.append(start, end);
-
-						mutation(
-							(start, end) => {
-								let currentChild = start.nextSibling;
-
-								while (currentChild) {
-									if (currentChild === end) {
-										break;
-									}
-
-									let nextChild = currentChild.nextSibling;
-
-									currentChild.remove();
-
-									currentChild = nextChild;
-								}
-
-								let newChild = child();
-
-								newChild =
-									newChild instanceof Element ? newChild.element : newChild;
-
-								if (newChild != null) {
-									start.after(newChild);
-								}
-							},
-							start,
-							end
-						);
-					} else if (child != null) {
-						child = child instanceof Element ? child.element : child;
-
-						if (child != null) {
-							element.append(child);
-						}
-					}
-				}
-			},
-			...args
-		);
+			current = prev;
+		}, 0);
 	}
 }
 
@@ -188,115 +34,299 @@ export function watch(object) {
 	return new Proxy(object, {set, get});
 }
 
-export function effect(callback) {
-	let prevCallback = currentCallback;
-
-	currentCallback = callback;
-
-	callback();
-
-	currentCallback = prevCallback;
-}
-
-export let html = h("html", "http://www.w3.org/1999/xhtml");
-export let svg = h("svg", "http://www.w3.org/2000/svg");
-export let math = h("math", "http://www.w3.org/1998/Math/MathML");
-
-export function $(...target) {
-	return new Proxy(
-		target.map((t) => {
-			return new Element(t);
-		}),
-		{
-			get(target, key, proxy) {
-				return (...args) => {
-					for (let t of target) {
-						t[key](...args);
-					}
-
-					return proxy;
-				};
-			},
-		}
-	);
-}
-
 function get(o, key, r) {
-	if (currentCallback) {
+	if (current) {
 		let callbacks = reads.get(o).get(key);
 
 		if (!callbacks) {
 			callbacks = new Set();
-
 			reads.get(o).set(key, callbacks);
 		}
 
-		callbacks.add(currentCallback);
+		callbacks.add(current);
 	}
 
-	let value = Reflect.get(o, key, r);
-
-	if (typeof value === "symbol" && values.has(value)) {
-		value = values.get(value);
-	}
-
-	return value;
+	return Reflect.get(o, key, r);
 }
 
 function set(o, key, value, r) {
 	let callbacks = reads.get(o).get(key);
 
 	if (callbacks) {
-		effectQueue.push(...callbacks);
-
-		if (!effectScheduled) {
-			effectScheduled = true;
-
-			setTimeout(() => {
-				effectScheduled = false;
-
-				for (let callback of new Set(effectQueue.splice(0, Infinity))) {
-					effect(callback);
-				}
-			}, 0);
+		for (let cb of callbacks) {
+			effect(cb);
 		}
 
 		callbacks.clear();
 	}
 
-	if (typeof value === "object") {
-		let symbol = Symbol("");
-
-		values.set(symbol, value);
-
-		value = symbol;
-	}
-
 	return Reflect.set(o, key, value, r);
 }
 
-function mutation(callback, ...args) {
-	let refs = args.map((arg) => new WeakRef(arg));
+class Element {
+	element;
 
-	effect(() => {
-		let derefs = refs.map((ref) => ref.deref());
+	constructor(element) {
+		this.element = new WeakRef(element);
+	}
 
-		if (derefs.some((arg) => arg == null)) {
-			return;
+	#mutate(callback, value = () => {}) {
+		let immediate = typeof value !== "function";
+
+		let cb = () => {
+			let element = this.element?.deref();
+
+			if (element && registered.has(element)) {
+				callback(element, immediate ? value : value());
+			}
+		};
+
+		let element = this.element?.deref();
+
+		if (element) {
+			registered.add(element);
 		}
 
-		callback(...derefs);
-	});
+		if (immediate) {
+			cb();
+		} else {
+			effect(cb);
+		}
+	}
+
+	prop(key, value) {
+		this.#mutate((element, value) => {
+			element[key] = value;
+		}, value);
+
+		return this;
+	}
+
+	attr(key, value, namespace) {
+		this.#mutate((element, value) => {
+			if (namespace) {
+				if (value == null) {
+					element.removeAttributeNS(namespace, key);
+				} else if (value === true || value === false) {
+					element.toggleAttributeNS(namespace, key, value);
+				} else {
+					element.setAttributeNS(namespace, key, value);
+				}
+			} else {
+				if (value == null) {
+					element.removeAttribute(key);
+				} else if (value === true || value === false) {
+					element.toggleAttribute(key, value);
+				} else {
+					element.setAttribute(key, value);
+				}
+			}
+		}, value);
+
+		return this;
+	}
+
+	classes(...classes) {
+		classes = classes.flat(Infinity);
+
+		for (let c of classes) {
+			if (typeof c === "object") {
+				for (let [key, value] of Object.entries(c)) {
+					this.#mutate((element, value) => {
+						element.classList.toggle(key, value);
+					}, value);
+				}
+			} else {
+				let element = this.element?.deref();
+
+				if (element) {
+					element.classList?.add(c, true);
+				}
+			}
+		}
+
+		return this;
+	}
+
+	styles(styles) {
+		for (let [key, value] of Object.entries(styles)) {
+			this.#mutate((element, value) => {
+				element.style.setProperty(key, value);
+			}, value);
+		}
+
+		return this;
+	}
+
+	data(data) {
+		for (let [key, value] of Object.entries(data)) {
+			this.#mutate((element, value) => {
+				element.dataSet[key] = value;
+			}, value);
+		}
+
+		return this;
+	}
+
+	on(events, handler, options = {}) {
+		let element = this.element?.deref();
+
+		if (element) {
+			for (let event of [].concat(events)) {
+				element.addEventListener(event, handler, options);
+			}
+		}
+
+		return this;
+	}
+
+	map(list, callback, filter = () => true) {
+		let element = this.element?.deref();
+
+		if (element) {
+			let views = [];
+			let bounds = [document.createComment(""), document.createComment("")];
+
+			element.append(...bounds);
+
+			bounds = bounds.map((c) => new WeakRef(c));
+
+			this.#mutate(() => {
+				let start = bounds[0].deref();
+				let end = bounds[1].deref();
+				let currentChild =
+					start && start.nextSibling !== end ? start.nextSibling : null;
+				let fragment = new DocumentFragment();
+				let i = 0;
+
+				for (let j = 0; j < list.length; j++) {
+					let item = list[j];
+
+					if (!filter(item, j)) {
+						continue;
+					}
+
+					let view = views[i];
+
+					if (!view) {
+						view = watch({});
+
+						views.push(view);
+					}
+
+					if (item !== view.item) {
+						view.item = item;
+					}
+
+					view.index = j;
+
+					if (!currentChild) {
+						let element = callback(view)?.element?.deref();
+
+						if (element) {
+							fragment.append(element);
+						}
+					}
+
+					currentChild =
+						currentChild?.nextSibling !== end
+							? currentChild?.nextSibling
+							: null;
+
+					i++;
+				}
+
+				end.before(fragment);
+
+				views.splice(i, Infinity);
+
+				while (currentChild && currentChild !== end) {
+					let nextChild = currentChild.nextSibling;
+
+					currentChild.remove();
+
+					currentChild = nextChild;
+				}
+			});
+		}
+
+		return this;
+	}
+
+	append(...values) {
+		let element = this.element?.deref();
+
+		if (element) {
+			for (let value of values) {
+				if (typeof value === "object" && value instanceof Element) {
+					let child = value.element?.deref();
+
+					if (child) {
+						element.append(child);
+					}
+				} else if (typeof value === "function") {
+					let bounds = [document.createComment(""), document.createComment("")];
+
+					element.append(...bounds);
+
+					bounds = bounds.map((c) => new WeakRef(c));
+
+					this.#mutate(() => {
+						let start = bounds[0].deref();
+						let end = bounds[1].deref();
+						let currentChild = start ? start.nextSibling : null;
+						while (currentChild && currentChild !== end) {
+							let nextChild = currentChild.nextSibling;
+
+							currentChild.remove();
+
+							currentChild = nextChild;
+						}
+
+						let fragment = new DocumentFragment();
+
+						let child = value();
+
+						if (child != null) {
+							if (typeof child === "object" && child instanceof Element) {
+								child = child.element?.deref();
+							}
+
+							fragment.append(child);
+
+							end.before(fragment);
+						}
+					});
+				} else {
+					element.append(value);
+				}
+			}
+		}
+
+		return this;
+	}
+
+	text(value) {
+		this.#mutate((element, value) => {
+			element.textContent = value;
+		}, value);
+
+		return this;
+	}
 }
 
-function h(name, namespace) {
-	let root = (n = name) => {
-		return new Element(globalThis.document.createElementNS(namespace, n));
-	};
+export const svg_namespace = "http://www.w3.org/2000/svg";
+export const xlink_namespace = "http://www.w3.org/1999/xlink";
+export const mathml_namespace = "http://www.w3.org/1998/Math/MathML";
 
-	return new Proxy(root, {
-		get(_, name) {
-			return () => root(name);
-		},
-	});
+export function create(tag, namespace) {
+	return new Element(
+		namespace
+			? document.createElementNS(namespace, tag)
+			: document.createElement(tag)
+	);
+}
+
+export function adopt(element) {
+	return new Element(element);
 }
