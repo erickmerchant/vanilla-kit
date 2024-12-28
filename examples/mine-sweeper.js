@@ -1,4 +1,4 @@
-import {watch, create, adopt} from "../lib.js";
+import {watch, create, use, each} from "../lib.js";
 
 const PLAY_STATES = {
 	PLAYING: 0,
@@ -7,7 +7,7 @@ const PLAY_STATES = {
 };
 
 export default function mineSweeper({height, width, mineCount}, target) {
-	target = adopt(target);
+	target = use(target);
 
 	let state = watch({
 		playState: PLAY_STATES.PLAYING,
@@ -19,7 +19,6 @@ export default function mineSweeper({height, width, mineCount}, target) {
 	let hiddenCount = height * width;
 	let gameBoard = new Map();
 	let adjacentMap = new Map();
-
 	let infoPanel = create("div")
 		.classes("info-panel")
 		.append(
@@ -33,15 +32,16 @@ export default function mineSweeper({height, width, mineCount}, target) {
 				.classes("time")
 				.append(create("div").text("⏱️"), () => state.time)
 		);
-
 	let board = create("div")
 		.attr("aria-rowcount", height)
 		.attr("aria-colcount", width)
 		.attr("role", "grid")
-		.map(range(height), (row) =>
-			create("div")
-				.attr("role", "row")
-				.map(range(width), (col) => cell(row, col))
+		.append(
+			each(range(height)).map((row) =>
+				create("div")
+					.attr("role", "row")
+					.append(each(range(width)).map((col) => cell(row, col)))
+			)
 		);
 
 	function cell(row, col) {
@@ -101,10 +101,6 @@ export default function mineSweeper({height, width, mineCount}, target) {
 			"--height": height,
 		})
 		.append(infoPanel, board);
-
-	function range(n) {
-		return [...Array(n).keys()];
-	}
 
 	function updateTime() {
 		state.time = Math.floor((Date.now() - startTime) / 1000);
@@ -285,3 +281,7 @@ export class MineSweeper extends HTMLElement {
 }
 
 customElements.define("mine-sweeper", MineSweeper);
+
+function range(n) {
+	return [...Array(n).keys()];
+}

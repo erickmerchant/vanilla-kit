@@ -4,63 +4,26 @@ let reads = new WeakMap();
 let registered = new WeakSet();
 let scheduled = false;
 
-export function effect(callback) {
-	queue.push(callback);
+class Each {
+	list;
+	mapper;
+	filterer = () => true;
 
-	if (!scheduled) {
-		scheduled = true;
-
-		setTimeout(() => {
-			scheduled = false;
-
-			let callbacks = queue.splice(0, Infinity);
-
-			let prev = current;
-
-			for (let cb of callbacks) {
-				current = cb;
-
-				cb();
-			}
-
-			current = prev;
-		}, 0);
-	}
-}
-
-export function watch(object) {
-	reads.set(object, new Map());
-
-	return new Proxy(object, {set, get});
-}
-
-function get(o, key, r) {
-	if (current) {
-		let callbacks = reads.get(o).get(key);
-
-		if (!callbacks) {
-			callbacks = new Set();
-			reads.get(o).set(key, callbacks);
-		}
-
-		callbacks.add(current);
+	constructor(list) {
+		this.list = list;
 	}
 
-	return Reflect.get(o, key, r);
-}
+	map(callback) {
+		this.mapper = callback;
 
-function set(o, key, value, r) {
-	let callbacks = reads.get(o).get(key);
-
-	if (callbacks) {
-		for (let cb of callbacks) {
-			effect(cb);
-		}
-
-		callbacks.clear();
+		return this;
 	}
 
-	return Reflect.set(o, key, value, r);
+	filter(callback) {
+		this.filterer = callback;
+
+		return this;
+	}
 }
 
 class Element {
@@ -80,7 +43,6 @@ class Element {
 				callback(element, immediate ? value : value());
 			}
 		};
-
 		let element = this.element?.deref();
 
 		if (element) {
@@ -180,89 +142,86 @@ class Element {
 		return this;
 	}
 
-	map(list, callback, filter = () => true) {
-		let element = this.element?.deref();
-
-		if (element) {
-			let views = [];
-			let bounds = [document.createComment(""), document.createComment("")];
-
-			element.append(...bounds);
-
-			bounds = bounds.map((c) => new WeakRef(c));
-
-			this.#mutate(() => {
-				let start = bounds[0].deref();
-				let end = bounds[1].deref();
-				let currentChild =
-					start && start.nextSibling !== end ? start.nextSibling : null;
-				let fragment = new DocumentFragment();
-				let i = 0;
-
-				for (let j = 0; j < list.length; j++) {
-					let item = list[j];
-
-					if (!filter(item, j)) {
-						continue;
-					}
-
-					let view = views[i];
-
-					if (!view) {
-						view = watch({});
-
-						views.push(view);
-					}
-
-					if (item !== view.item) {
-						view.item = item;
-					}
-
-					view.index = j;
-
-					if (!currentChild) {
-						let element = callback(view)?.element?.deref();
-
-						if (element) {
-							fragment.append(element);
-						}
-					}
-
-					currentChild =
-						currentChild?.nextSibling !== end
-							? currentChild?.nextSibling
-							: null;
-
-					i++;
-				}
-
-				end.before(fragment);
-
-				views.splice(i, Infinity);
-
-				while (currentChild && currentChild !== end) {
-					let nextChild = currentChild.nextSibling;
-
-					currentChild.remove();
-
-					currentChild = nextChild;
-				}
-			});
-		}
-
-		return this;
-	}
-
 	append(...values) {
 		let element = this.element?.deref();
 
 		if (element) {
 			for (let value of values) {
-				if (typeof value === "object" && value instanceof Element) {
-					let child = value.element?.deref();
+				if (typeof value === "object") {
+					if (value instanceof Element) {
+						let child = value.element?.deref();
 
-					if (child) {
-						element.append(child);
+						if (child) {
+							element.append(child);
+						}
+					} else if (value instanceof Each) {
+						let views = [];
+						let bounds = [
+							document.createComment(""),
+							document.createComment(""),
+						];
+
+						element.append(...bounds);
+
+						bounds = bounds.map((c) => new WeakRef(c));
+
+						this.#mutate(() => {
+							let start = bounds[0].deref();
+							let end = bounds[1].deref();
+							let currentChild =
+								start && start.nextSibling !== end ? start.nextSibling : null;
+							let fragment = new DocumentFragment();
+							let i = 0;
+
+							for (let index = 0; index < value.list.length; index++) {
+								let item = value.list[index];
+
+								if (!value.filterer({item, index})) {
+									continue;
+								}
+
+								let view = views[i];
+
+								if (!view) {
+									view = watch({});
+
+									views.push(view);
+								}
+
+								if (item !== view.item) {
+									view.item = item;
+								}
+
+								view.index = index;
+
+								if (!currentChild) {
+									let element = value.mapper(view)?.element?.deref();
+
+									if (element) {
+										fragment.append(element);
+									}
+								}
+
+								currentChild =
+									currentChild?.nextSibling !== end
+										? currentChild?.nextSibling
+										: null;
+
+								i++;
+							}
+
+							end.before(fragment);
+
+							views.splice(i, Infinity);
+
+							while (currentChild && currentChild !== end) {
+								let nextChild = currentChild.nextSibling;
+
+								currentChild.remove();
+
+								currentChild = nextChild;
+							}
+						});
 					}
 				} else if (typeof value === "function") {
 					let bounds = [document.createComment(""), document.createComment("")];
@@ -284,7 +243,6 @@ class Element {
 						}
 
 						let fragment = new DocumentFragment();
-
 						let child = value();
 
 						if (child != null) {
@@ -315,18 +273,80 @@ class Element {
 	}
 }
 
+function get(o, key, r) {
+	if (current) {
+		let callbacks = reads.get(o).get(key);
+
+		if (!callbacks) {
+			callbacks = new Set();
+			reads.get(o).set(key, callbacks);
+		}
+
+		callbacks.add(current);
+	}
+
+	return Reflect.get(o, key, r);
+}
+
+function set(o, key, value, r) {
+	let callbacks = reads.get(o).get(key);
+
+	if (callbacks) {
+		for (let cb of callbacks) {
+			effect(cb);
+		}
+
+		callbacks.clear();
+	}
+
+	return Reflect.set(o, key, value, r);
+}
+
+export function effect(callback) {
+	queue.push(callback);
+
+	if (!scheduled) {
+		scheduled = true;
+
+		setTimeout(() => {
+			scheduled = false;
+
+			let callbacks = queue.splice(0, Infinity);
+			let prev = current;
+
+			for (let cb of callbacks) {
+				current = cb;
+
+				cb();
+			}
+
+			current = prev;
+		}, 0);
+	}
+}
+
+export function watch(object) {
+	reads.set(object, new Map());
+
+	return new Proxy(object, {set, get});
+}
+
 export const svg_namespace = "http://www.w3.org/2000/svg";
 export const xlink_namespace = "http://www.w3.org/1999/xlink";
 export const mathml_namespace = "http://www.w3.org/1998/Math/MathML";
 
+export function use(element) {
+	return new Element(element);
+}
+
 export function create(tag, namespace) {
-	return new Element(
+	return use(
 		namespace
 			? document.createElementNS(namespace, tag)
 			: document.createElement(tag)
 	);
 }
 
-export function adopt(element) {
-	return new Element(element);
+export function each(list) {
+	return new Each(list);
 }
