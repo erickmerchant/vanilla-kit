@@ -13,14 +13,14 @@ class Each {
 		this.list = list;
 	}
 
-	map(callback) {
-		this.mapper = callback;
+	map(mapper) {
+		this.mapper = mapper;
 
 		return this;
 	}
 
-	filter(callback) {
-		this.filterer = callback;
+	filter(filterer) {
+		this.filterer = filterer;
 
 		return this;
 	}
@@ -35,7 +35,6 @@ class Element {
 
 	#mutate(callback, value = () => {}) {
 		let immediate = typeof value !== "function";
-
 		let cb = () => {
 			let element = this.element?.deref();
 
@@ -64,24 +63,14 @@ class Element {
 		return this;
 	}
 
-	attr(key, value, namespace) {
+	attr(key, value) {
 		this.#mutate((element, value) => {
-			if (namespace) {
-				if (value == null) {
-					element.removeAttributeNS(namespace, key);
-				} else if (value === true || value === false) {
-					element.toggleAttributeNS(namespace, key, value);
-				} else {
-					element.setAttributeNS(namespace, key, value);
-				}
+			if (value == null) {
+				element.removeAttribute(key);
+			} else if (value === true || value === false) {
+				element.toggleAttribute(key, value);
 			} else {
-				if (value == null) {
-					element.removeAttribute(key);
-				} else if (value === true || value === false) {
-					element.toggleAttribute(key, value);
-				} else {
-					element.setAttribute(key, value);
-				}
+				element.setAttribute(key, value);
 			}
 		}, value);
 
@@ -142,41 +131,43 @@ class Element {
 		return this;
 	}
 
-	append(...values) {
+	#bounds(element) {
+		let bounds = [document.createComment(""), document.createComment("")];
+
+		element.append(...bounds);
+
+		bounds = bounds.map((c) => new WeakRef(c));
+
+		return () => bounds.map((b) => b.deref());
+	}
+
+	append(...children) {
 		let element = this.element?.deref();
 
 		if (element) {
-			for (let value of values) {
-				if (typeof value === "object") {
-					if (value instanceof Element) {
-						let child = value.element?.deref();
+			for (let child of children) {
+				if (typeof child === "object") {
+					if (child instanceof Element) {
+						child = child.element?.deref();
 
 						if (child) {
 							element.append(child);
 						}
-					} else if (value instanceof Each) {
+					} else if (child instanceof Each) {
 						let views = [];
-						let bounds = [
-							document.createComment(""),
-							document.createComment(""),
-						];
-
-						element.append(...bounds);
-
-						bounds = bounds.map((c) => new WeakRef(c));
+						let bounds = this.#bounds(element);
 
 						this.#mutate(() => {
-							let start = bounds[0].deref();
-							let end = bounds[1].deref();
+							let [start, end] = bounds();
 							let currentChild =
 								start && start.nextSibling !== end ? start.nextSibling : null;
 							let fragment = new DocumentFragment();
 							let i = 0;
 
-							for (let index = 0; index < value.list.length; index++) {
-								let item = value.list[index];
+							for (let index = 0; index < child.list.length; index++) {
+								let item = child.list[index];
 
-								if (!value.filterer({item, index})) {
+								if (!child.filterer({item, index})) {
 									continue;
 								}
 
@@ -195,7 +186,7 @@ class Element {
 								view.index = index;
 
 								if (!currentChild) {
-									let element = value.mapper(view)?.element?.deref();
+									let element = child.mapper(view)?.element?.deref();
 
 									if (element) {
 										fragment.append(element);
@@ -223,16 +214,11 @@ class Element {
 							}
 						});
 					}
-				} else if (typeof value === "function") {
-					let bounds = [document.createComment(""), document.createComment("")];
-
-					element.append(...bounds);
-
-					bounds = bounds.map((c) => new WeakRef(c));
+				} else if (typeof child === "function") {
+					let bounds = this.#bounds(element);
 
 					this.#mutate(() => {
-						let start = bounds[0].deref();
-						let end = bounds[1].deref();
+						let [start, end] = bounds();
 						let currentChild = start ? start.nextSibling : null;
 						while (currentChild && currentChild !== end) {
 							let nextChild = currentChild.nextSibling;
@@ -243,20 +229,20 @@ class Element {
 						}
 
 						let fragment = new DocumentFragment();
-						let child = value();
+						let c = child();
 
-						if (child != null) {
-							if (typeof child === "object" && child instanceof Element) {
-								child = child.element?.deref();
+						if (c != null) {
+							if (typeof c === "object" && c instanceof Element) {
+								c = c.element?.deref();
 							}
 
-							fragment.append(child);
+							fragment.append(c);
 
 							end.before(fragment);
 						}
 					});
 				} else {
-					element.append(value);
+					element.append(child);
 				}
 			}
 		}
@@ -264,10 +250,10 @@ class Element {
 		return this;
 	}
 
-	text(value) {
-		this.#mutate((element, value) => {
-			element.textContent = value;
-		}, value);
+	text(txt) {
+		this.#mutate((element, txt) => {
+			element.textContent = txt;
+		}, txt);
 
 		return this;
 	}
@@ -332,8 +318,6 @@ export function watch(object) {
 }
 
 export const svg_namespace = "http://www.w3.org/2000/svg";
-export const xlink_namespace = "http://www.w3.org/1999/xlink";
-export const mathml_namespace = "http://www.w3.org/1998/Math/MathML";
 
 export function use(element) {
 	return new Element(element);
