@@ -1,4 +1,4 @@
-import {watch, create, each, define, effect} from "../lib.js";
+import {watch, create, each, define} from "../lib.js";
 
 const PLAY_STATES = {
 	PLAYING: 0,
@@ -7,18 +7,18 @@ const PLAY_STATES = {
 };
 
 export default function mineSweeper(attributes) {
-	effect(() => {
-		console.log(attributes.width, attributes.height);
-	});
+	let height = +attributes.height;
+	let width = +attributes.width;
+	let mineCount = +attributes["mine-count"];
 
 	let state = watch({
 		playState: PLAY_STATES.PLAYING,
 		time: 0,
-		flagCount: attributes.mineCount,
+		flagCount: mineCount,
 	});
 	let startTime = null;
 	let timeInterval = null;
-	let hiddenCount = attributes.height * attributes.width;
+	let hiddenCount = height * width;
 	let gameBoard = new Map();
 	let adjacentMap = new Map();
 	let infoPanel = create("div")
@@ -35,14 +35,14 @@ export default function mineSweeper(attributes) {
 				.append(create("div").text("⏱️"), () => state.time)
 		);
 	let board = create("div")
-		.attr("aria-rowcount", attributes.height)
-		.attr("aria-colcount", attributes.width)
+		.attr("aria-rowcount", height)
+		.attr("aria-colcount", width)
 		.attr("role", "grid")
 		.append(
-			each(range(attributes.height)).map((row) =>
+			each(range(height)).map((row) =>
 				create("div")
 					.attr("role", "row")
-					.append(each(range(attributes.width)).map((col) => cell(row, col)))
+					.append(each(range(width)).map((col) => cell(row, col)))
 			)
 		);
 
@@ -98,8 +98,8 @@ export default function mineSweeper(attributes) {
 	}
 
 	this.styles({
-		"--width": attributes.width,
-		"--height": attributes.height,
+		"--width": width,
+		"--height": height,
 	});
 
 	return [infoPanel, board];
@@ -116,7 +116,7 @@ export default function mineSweeper(attributes) {
 				return;
 			}
 
-			if (hiddenCount === attributes.height * attributes.width) {
+			if (hiddenCount === height * width) {
 				let armed = [...gameBoard.values()].map((s) => ({
 					square: s,
 					order: s === square ? 2 : Math.random(),
@@ -124,7 +124,7 @@ export default function mineSweeper(attributes) {
 
 				armed.sort((a, b) => a.order - b.order);
 
-				armed = armed.splice(0, attributes.mineCount);
+				armed = armed.splice(0, mineCount);
 
 				for (let {square} of armed) {
 					square.isArmed = true;
@@ -182,7 +182,7 @@ export default function mineSweeper(attributes) {
 						} while (current.length > 0);
 					}
 
-					if (hiddenCount === attributes.mineCount) {
+					if (hiddenCount === mineCount) {
 						state.playState = PLAY_STATES.WON;
 
 						clearInterval(timeInterval);
@@ -213,7 +213,7 @@ export default function mineSweeper(attributes) {
 				ArrowDown: [[x, y + 1]],
 				ArrowLeft: [
 					[x - 1, y],
-					[attributes.width - 1, y - 1],
+					[width - 1, y - 1],
 				],
 				ArrowRight: [
 					[x + 1, y],
