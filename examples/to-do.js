@@ -1,8 +1,14 @@
-import {watch, effect, create, use, svg_namespace, each} from "../lib.js";
+import {
+	watch,
+	effect,
+	create,
+	use,
+	svg_namespace,
+	each,
+	define,
+} from "../lib.js";
 
-export default function todoApp(target) {
-	target = use(target);
-
+export default function todoApp() {
 	let state = watch(
 		JSON.parse(localStorage.getItem("to-do-app")) ?? {
 			showDone: true,
@@ -160,15 +166,7 @@ export default function todoApp(target) {
 
 	let listOl = create("ol").classes("list").append(itemsList);
 
-	target.append(h1, showDoneCheckbox, showDoneLabel, textInput, listOl);
+	return [h1, showDoneCheckbox, showDoneLabel, textInput, listOl];
 }
 
-export class TodoApp extends HTMLElement {
-	constructor() {
-		super();
-
-		todoApp(this);
-	}
-}
-
-customElements.define("to-do-app", TodoApp);
+define("to-do-app", todoApp);

@@ -4,7 +4,7 @@ let reads = new WeakMap();
 let registered = new WeakSet();
 let scheduled = false;
 
-class Each {
+class Collection {
 	list;
 	mapper;
 	filterer = () => true;
@@ -142,6 +142,8 @@ class Element {
 	}
 
 	append(...children) {
+		children = children.flat(Infinity);
+
 		let element = this.element?.deref();
 
 		if (element) {
@@ -153,7 +155,7 @@ class Element {
 						if (child) {
 							element.append(child);
 						}
-					} else if (child instanceof Each) {
+					} else if (child instanceof Collection) {
 						let views = [];
 						let bounds = this.#bounds(element);
 
@@ -274,7 +276,7 @@ function get(o, key, r) {
 	return Reflect.get(o, key, r);
 }
 
-function set(o, key, value, r) {
+function modify(o, key) {
 	let callbacks = reads.get(o).get(key);
 
 	if (callbacks) {
@@ -284,8 +286,18 @@ function set(o, key, value, r) {
 
 		callbacks.clear();
 	}
+}
+
+function set(o, key, value, r) {
+	modify(o, key);
 
 	return Reflect.set(o, key, value, r);
+}
+
+function deleteProperty(o, key) {
+	modify(o, key);
+
+	return Reflect.deleteProperty(o, key);
 }
 
 export function effect(callback) {
@@ -314,7 +326,7 @@ export function effect(callback) {
 export function watch(object) {
 	reads.set(object, new Map());
 
-	return new Proxy(object, {set, get});
+	return new Proxy(object, {set, get, deleteProperty});
 }
 
 export const svg_namespace = "http://www.w3.org/2000/svg";
@@ -332,5 +344,32 @@ export function create(tag, namespace) {
 }
 
 export function each(list) {
-	return new Each(list);
+	return new Collection(list);
+}
+
+const attributeObserver = new MutationObserver((mutationList, observer) => {
+	for (const {target, attributeName} of mutationList) {
+		target.watched[attributeName] = target.getAttribute(attributeName);
+	}
+});
+
+export function define(name, view) {
+	customElements.define(
+		name,
+		class extends HTMLElement {
+			watched = watch({});
+
+			connectedCallback() {
+				let target = use(this);
+
+				for (let attr of this.attributes) {
+					this.watched[attr.name] = attr.value;
+				}
+
+				attributeObserver.observe(this, {attributes: true});
+
+				target.append(view.call(target, this.watched));
+			}
+		}
+	);
 }

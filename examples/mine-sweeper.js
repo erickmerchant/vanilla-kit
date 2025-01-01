@@ -1,4 +1,4 @@
-import {watch, create, use, each} from "../lib.js";
+import {watch, create, each, define, effect} from "../lib.js";
 
 const PLAY_STATES = {
 	PLAYING: 0,
@@ -6,17 +6,19 @@ const PLAY_STATES = {
 	WON: 2,
 };
 
-export default function mineSweeper({height, width, mineCount}, target) {
-	target = use(target);
+export default function mineSweeper(attributes) {
+	effect(() => {
+		console.log(attributes.width, attributes.height);
+	});
 
 	let state = watch({
 		playState: PLAY_STATES.PLAYING,
 		time: 0,
-		flagCount: mineCount,
+		flagCount: attributes.mineCount,
 	});
 	let startTime = null;
 	let timeInterval = null;
-	let hiddenCount = height * width;
+	let hiddenCount = attributes.height * attributes.width;
 	let gameBoard = new Map();
 	let adjacentMap = new Map();
 	let infoPanel = create("div")
@@ -33,14 +35,14 @@ export default function mineSweeper({height, width, mineCount}, target) {
 				.append(create("div").text("⏱️"), () => state.time)
 		);
 	let board = create("div")
-		.attr("aria-rowcount", height)
-		.attr("aria-colcount", width)
+		.attr("aria-rowcount", attributes.height)
+		.attr("aria-colcount", attributes.width)
 		.attr("role", "grid")
 		.append(
-			each(range(height)).map((row) =>
+			each(range(attributes.height)).map((row) =>
 				create("div")
 					.attr("role", "row")
-					.append(each(range(width)).map((col) => cell(row, col)))
+					.append(each(range(attributes.width)).map((col) => cell(row, col)))
 			)
 		);
 
@@ -95,12 +97,12 @@ export default function mineSweeper({height, width, mineCount}, target) {
 			);
 	}
 
-	target
-		.styles({
-			"--width": width,
-			"--height": height,
-		})
-		.append(infoPanel, board);
+	this.styles({
+		"--width": attributes.width,
+		"--height": attributes.height,
+	});
+
+	return [infoPanel, board];
 
 	function updateTime() {
 		state.time = Math.floor((Date.now() - startTime) / 1000);
@@ -114,7 +116,7 @@ export default function mineSweeper({height, width, mineCount}, target) {
 				return;
 			}
 
-			if (hiddenCount === height * width) {
+			if (hiddenCount === attributes.height * attributes.width) {
 				let armed = [...gameBoard.values()].map((s) => ({
 					square: s,
 					order: s === square ? 2 : Math.random(),
@@ -122,7 +124,7 @@ export default function mineSweeper({height, width, mineCount}, target) {
 
 				armed.sort((a, b) => a.order - b.order);
 
-				armed = armed.splice(0, mineCount);
+				armed = armed.splice(0, attributes.mineCount);
 
 				for (let {square} of armed) {
 					square.isArmed = true;
@@ -180,7 +182,7 @@ export default function mineSweeper({height, width, mineCount}, target) {
 						} while (current.length > 0);
 					}
 
-					if (hiddenCount === mineCount) {
+					if (hiddenCount === attributes.mineCount) {
 						state.playState = PLAY_STATES.WON;
 
 						clearInterval(timeInterval);
@@ -211,7 +213,7 @@ export default function mineSweeper({height, width, mineCount}, target) {
 				ArrowDown: [[x, y + 1]],
 				ArrowLeft: [
 					[x - 1, y],
-					[width - 1, y - 1],
+					[attributes.width - 1, y - 1],
 				],
 				ArrowRight: [
 					[x + 1, y],
@@ -268,19 +270,7 @@ export default function mineSweeper({height, width, mineCount}, target) {
 	}
 }
 
-export class MineSweeper extends HTMLElement {
-	constructor() {
-		super();
-
-		let width = +this.getAttribute("width");
-		let height = +this.getAttribute("height");
-		let mineCount = +this.getAttribute("mine-count");
-
-		mineSweeper({height, width, mineCount}, this);
-	}
-}
-
-customElements.define("mine-sweeper", MineSweeper);
+define("mine-sweeper", mineSweeper);
 
 function range(n) {
 	return [...Array(n).keys()];
