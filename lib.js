@@ -141,109 +141,132 @@ class Element {
 		return () => bounds.map((b) => b.deref());
 	}
 
-	append(...children) {
-		children = children.flat(Infinity);
-
+	#appendElement(child) {
 		let element = this.element?.deref();
 
 		if (element) {
-			for (let child of children) {
-				if (typeof child === "object") {
-					if (child instanceof Element) {
-						child = child.element?.deref();
+			child = child.element?.deref();
 
-						if (child) {
-							element.append(child);
-						}
-					} else if (child instanceof Collection) {
-						let views = [];
-						let bounds = this.#bounds(element);
+			if (child) {
+				element.append(child);
+			}
+		}
+	}
 
-						this.#mutate(() => {
-							let [start, end] = bounds();
-							let currentChild =
-								start && start.nextSibling !== end ? start.nextSibling : null;
-							let fragment = new DocumentFragment();
-							let i = 0;
+	#appendCollection(child) {
+		let element = this.element?.deref();
 
-							for (let index = 0; index < child.list.length; index++) {
-								let item = child.list[index];
+		if (element) {
+			let views = [];
+			let bounds = this.#bounds(element);
 
-								if (!child.filterer({item, index})) {
-									continue;
-								}
+			this.#mutate(() => {
+				let [start, end] = bounds();
+				let currentChild =
+					start && start.nextSibling !== end ? start.nextSibling : null;
+				let fragment = new DocumentFragment();
+				let i = 0;
 
-								let view = views[i];
+				for (let index = 0; index < child.list.length; index++) {
+					let item = child.list[index];
 
-								if (!view) {
-									view = watch({});
-
-									views.push(view);
-								}
-
-								if (item !== view.item) {
-									view.item = item;
-								}
-
-								view.index = index;
-
-								if (!currentChild) {
-									let element = child.mapper(view)?.element?.deref();
-
-									if (element) {
-										fragment.append(element);
-									}
-								}
-
-								currentChild =
-									currentChild?.nextSibling !== end
-										? currentChild?.nextSibling
-										: null;
-
-								i++;
-							}
-
-							end.before(fragment);
-
-							views.splice(i, Infinity);
-
-							while (currentChild && currentChild !== end) {
-								let nextChild = currentChild.nextSibling;
-
-								currentChild.remove();
-
-								currentChild = nextChild;
-							}
-						});
+					if (!child.filterer({item, index})) {
+						continue;
 					}
-				} else if (typeof child === "function") {
-					let bounds = this.#bounds(element);
 
-					this.#mutate(() => {
-						let [start, end] = bounds();
-						let currentChild = start ? start.nextSibling : null;
-						while (currentChild && currentChild !== end) {
-							let nextChild = currentChild.nextSibling;
+					let view = views[i];
 
-							currentChild.remove();
+					if (!view) {
+						view = watch({});
 
-							currentChild = nextChild;
+						views.push(view);
+					}
+
+					if (item !== view.item) {
+						view.item = item;
+					}
+
+					view.index = index;
+
+					if (!currentChild) {
+						let element = child.mapper(view)?.element?.deref();
+
+						if (element) {
+							fragment.append(element);
 						}
+					}
 
-						let fragment = new DocumentFragment();
-						let c = child();
+					currentChild =
+						currentChild?.nextSibling !== end
+							? currentChild?.nextSibling
+							: null;
 
-						if (c != null) {
-							if (typeof c === "object" && c instanceof Element) {
-								c = c.element?.deref();
-							}
+					i++;
+				}
 
-							fragment.append(c);
+				end.before(fragment);
 
-							end.before(fragment);
-						}
-					});
-				} else {
+				views.splice(i, Infinity);
+
+				while (currentChild && currentChild !== end) {
+					let nextChild = currentChild.nextSibling;
+
+					currentChild.remove();
+
+					currentChild = nextChild;
+				}
+			});
+		}
+	}
+
+	#appendFunction(child) {
+		let element = this.element?.deref();
+
+		if (element) {
+			let bounds = this.#bounds(element);
+
+			this.#mutate(() => {
+				let [start, end] = bounds();
+				let currentChild = start ? start.nextSibling : null;
+				while (currentChild && currentChild !== end) {
+					let nextChild = currentChild.nextSibling;
+
+					currentChild.remove();
+
+					currentChild = nextChild;
+				}
+
+				let fragment = new DocumentFragment();
+				let c = child();
+
+				if (c != null) {
+					if (typeof c === "object" && c instanceof Element) {
+						c = c.element?.deref();
+					}
+
+					fragment.append(c);
+
+					end.before(fragment);
+				}
+			});
+		}
+	}
+
+	append(...children) {
+		children = children.flat(Infinity);
+
+		for (let child of children) {
+			let isObject = typeof child === "object";
+
+			if (isObject && child instanceof Element) {
+				this.#appendElement(child);
+			} else if (isObject && child instanceof Collection) {
+				this.#appendCollection(child);
+			} else if (typeof child === "function") {
+				this.#appendFunction(child);
+			} else {
+				let element = this.element?.deref();
+				if (element) {
 					element.append(child);
 				}
 			}
