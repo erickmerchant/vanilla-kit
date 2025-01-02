@@ -329,13 +329,25 @@ export function watch(object) {
 	return new Proxy(object, {set, get, deleteProperty});
 }
 
-export const svg_namespace = "http://www.w3.org/2000/svg";
-
 export function use(element) {
 	return new Element(element);
 }
 
-export function create(tag, namespace) {
+export const svg_namespace = "http://www.w3.org/2000/svg";
+
+let namespace;
+
+export function svg(cb) {
+	namespace = svg_namespace;
+
+	let result = cb();
+
+	namespace = null;
+
+	return result;
+}
+
+export function create(tag) {
 	return use(
 		namespace
 			? document.createElementNS(namespace, tag)

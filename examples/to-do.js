@@ -1,12 +1,4 @@
-import {
-	watch,
-	effect,
-	create,
-	use,
-	svg_namespace,
-	each,
-	define,
-} from "../lib.js";
+import {watch, effect, create, use, svg, each, define} from "../lib.js";
 
 export default function todoApp() {
 	let state = watch(
@@ -25,9 +17,7 @@ export default function todoApp() {
 		localStorage.setItem("to-do-app", JSON.stringify(state));
 	});
 
-	let body = use(document.body);
-
-	body.on(["dragover", "dragleave", "drop"], function (e) {
+	this.on(["dragover", "dragleave", "drop"], function (e) {
 		if (dragState.item != null) {
 			e.preventDefault();
 		}
@@ -148,15 +138,17 @@ export default function todoApp() {
 					view.item.isDeleted = true;
 				})
 				.append(
-					create("svg", svg_namespace)
-						.attr("viewBox", "0 0 16 16")
-						.append(
-							create("title", svg_namespace).text("Delete"),
-							create("path", svg_namespace).attr(
-								"d",
-								"M4 1 L8 5 L12 1 L15 4 L11 8 L15 12 L12 15 L8 11 L4 15 L1 12 L5 8 L1 4 Z"
+					svg(() =>
+						create("svg")
+							.attr("viewBox", "0 0 16 16")
+							.append(
+								create("title").text("Delete"),
+								create("path").attr(
+									"d",
+									"M4 1 L8 5 L12 1 L15 4 L11 8 L15 12 L12 15 L8 11 L4 15 L1 12 L5 8 L1 4 Z"
+								)
 							)
-						)
+					)
 				);
 
 			li.append(toggleDoneCheckbox, itemLabel, deleteButton);
