@@ -21,6 +21,10 @@ export default function mineSweeper(attributes) {
 	let hiddenCount = height * width;
 	let gameBoard = new Map();
 	let adjacentMap = new Map();
+
+	let styleLink = create("link")
+		.attr("href", new URL("./mine-sweeper.css", import.meta.url).href)
+		.attr("rel", "stylesheet");
 	let infoPanel = create("div")
 		.classes("info-panel")
 		.append(
@@ -102,7 +106,7 @@ export default function mineSweeper(attributes) {
 		"--height": height,
 	});
 
-	return [infoPanel, board];
+	return [styleLink, infoPanel, board];
 
 	function updateTime() {
 		state.time = Math.floor((Date.now() - startTime) / 1000);
@@ -270,7 +274,7 @@ export default function mineSweeper(attributes) {
 	}
 }
 
-define("mine-sweeper", mineSweeper);
+define("mine-sweeper", mineSweeper, true);
 
 function range(n) {
 	return [...Array(n).keys()];

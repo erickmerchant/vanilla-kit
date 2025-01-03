@@ -91,7 +91,7 @@ class Element {
 				let element = this.element?.deref();
 
 				if (element) {
-					element.classList?.add(c, true);
+					element.classList?.add(c);
 				}
 			}
 		}
@@ -141,132 +141,118 @@ class Element {
 		return () => bounds.map((b) => b.deref());
 	}
 
-	#appendElement(child) {
-		let element = this.element?.deref();
+	#appendElement(child, element) {
+		child = child.element?.deref();
 
-		if (element) {
-			child = child.element?.deref();
-
-			if (child) {
-				element.append(child);
-			}
+		if (child) {
+			element.append(child);
 		}
 	}
 
-	#appendCollection(child) {
-		let element = this.element?.deref();
+	#appendCollection(child, element) {
+		let views = [];
+		let bounds = this.#bounds(element);
 
-		if (element) {
-			let views = [];
-			let bounds = this.#bounds(element);
+		this.#mutate(() => {
+			let [start, end] = bounds();
+			let currentChild =
+				start && start.nextSibling !== end ? start.nextSibling : null;
+			let fragment = new DocumentFragment();
+			let i = 0;
 
-			this.#mutate(() => {
-				let [start, end] = bounds();
-				let currentChild =
-					start && start.nextSibling !== end ? start.nextSibling : null;
-				let fragment = new DocumentFragment();
-				let i = 0;
+			for (let index = 0; index < child.list.length; index++) {
+				let item = child.list[index];
 
-				for (let index = 0; index < child.list.length; index++) {
-					let item = child.list[index];
-
-					if (!child.filterer({item, index})) {
-						continue;
-					}
-
-					let view = views[i];
-
-					if (!view) {
-						view = watch({});
-
-						views.push(view);
-					}
-
-					if (item !== view.item) {
-						view.item = item;
-					}
-
-					view.index = index;
-
-					if (!currentChild) {
-						let element = child.mapper(view)?.element?.deref();
-
-						if (element) {
-							fragment.append(element);
-						}
-					}
-
-					currentChild =
-						currentChild?.nextSibling !== end
-							? currentChild?.nextSibling
-							: null;
-
-					i++;
+				if (!child.filterer({item, index})) {
+					continue;
 				}
+
+				let view = views[i];
+
+				if (!view) {
+					view = watch({});
+
+					views.push(view);
+				}
+
+				if (item !== view.item) {
+					view.item = item;
+				}
+
+				view.index = index;
+
+				if (!currentChild) {
+					let element = child.mapper(view)?.element?.deref();
+
+					if (element) {
+						fragment.append(element);
+					}
+				}
+
+				currentChild =
+					currentChild?.nextSibling !== end ? currentChild?.nextSibling : null;
+
+				i++;
+			}
+
+			end.before(fragment);
+
+			views.splice(i, Infinity);
+
+			while (currentChild && currentChild !== end) {
+				let nextChild = currentChild.nextSibling;
+
+				currentChild.remove();
+
+				currentChild = nextChild;
+			}
+		});
+	}
+
+	#appendFunction(child, element) {
+		let bounds = this.#bounds(element);
+
+		this.#mutate(() => {
+			let [start, end] = bounds();
+			let currentChild = start ? start.nextSibling : null;
+			while (currentChild && currentChild !== end) {
+				let nextChild = currentChild.nextSibling;
+
+				currentChild.remove();
+
+				currentChild = nextChild;
+			}
+
+			let fragment = new DocumentFragment();
+			let c = child();
+
+			if (c != null) {
+				if (typeof c === "object" && c instanceof Element) {
+					c = c.element?.deref();
+				}
+
+				fragment.append(c);
 
 				end.before(fragment);
-
-				views.splice(i, Infinity);
-
-				while (currentChild && currentChild !== end) {
-					let nextChild = currentChild.nextSibling;
-
-					currentChild.remove();
-
-					currentChild = nextChild;
-				}
-			});
-		}
-	}
-
-	#appendFunction(child) {
-		let element = this.element?.deref();
-
-		if (element) {
-			let bounds = this.#bounds(element);
-
-			this.#mutate(() => {
-				let [start, end] = bounds();
-				let currentChild = start ? start.nextSibling : null;
-				while (currentChild && currentChild !== end) {
-					let nextChild = currentChild.nextSibling;
-
-					currentChild.remove();
-
-					currentChild = nextChild;
-				}
-
-				let fragment = new DocumentFragment();
-				let c = child();
-
-				if (c != null) {
-					if (typeof c === "object" && c instanceof Element) {
-						c = c.element?.deref();
-					}
-
-					fragment.append(c);
-
-					end.before(fragment);
-				}
-			});
-		}
+			}
+		});
 	}
 
 	append(...children) {
 		children = children.flat(Infinity);
+		let element = this.element?.deref();
 
-		for (let child of children) {
-			let isObject = typeof child === "object";
+		if (element) {
+			for (let child of children) {
+				let isObject = typeof child === "object";
 
-			if (isObject && child instanceof Element) {
-				this.#appendElement(child);
-			} else if (isObject && child instanceof Collection) {
-				this.#appendCollection(child);
-			} else if (typeof child === "function") {
-				this.#appendFunction(child);
-			} else {
-				let element = this.element?.deref();
-				if (element) {
+				if (isObject && child instanceof Element) {
+					this.#appendElement(child, element);
+				} else if (isObject && child instanceof Collection) {
+					this.#appendCollection(child, element);
+				} else if (typeof child === "function") {
+					this.#appendFunction(child, element);
+				} else {
 					element.append(child);
 				}
 			}
@@ -388,14 +374,23 @@ const attributeObserver = new MutationObserver((mutationList, observer) => {
 	}
 });
 
-export function define(name, view) {
+export function define(name, view, shadow = false) {
 	customElements.define(
 		name,
 		class extends HTMLElement {
 			watched = watch({});
 
 			connectedCallback() {
-				let target = use(this);
+				let host = use(this);
+				let target = host;
+
+				if (shadow) {
+					this.attachShadow({
+						mode: typeof shadow === "string" ? shadow : "open",
+					});
+
+					target = use(this.shadowRoot);
+				}
 
 				for (let attr of this.attributes) {
 					this.watched[attr.name] = attr.value;
@@ -403,7 +398,7 @@ export function define(name, view) {
 
 				attributeObserver.observe(this, {attributes: true});
 
-				target.append(view.call(target, this.watched));
+				target.append(view.call(host, this.watched));
 			}
 		}
 	);
