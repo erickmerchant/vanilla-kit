@@ -231,7 +231,9 @@ class Element {
 					c = c.element?.deref();
 				}
 
-				fragment.append(c);
+				if (c != null) {
+					fragment.append(c);
+				}
 
 				end.before(fragment);
 			}
@@ -342,7 +344,7 @@ export function use(element) {
 	return new Element(element);
 }
 
-export const svg_namespace = "http://www.w3.org/2000/svg";
+export let svg_namespace = "http://www.w3.org/2000/svg";
 
 let namespace;
 
@@ -368,8 +370,8 @@ export function each(list) {
 	return new Collection(list);
 }
 
-const attributeObserver = new MutationObserver((mutationList, observer) => {
-	for (const {target, attributeName} of mutationList) {
+let attributeObserver = new MutationObserver((mutationList) => {
+	for (let {target, attributeName} of mutationList) {
 		target.watched[attributeName] = target.getAttribute(attributeName);
 	}
 });
