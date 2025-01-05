@@ -5,24 +5,59 @@ let registered = new WeakSet();
 let scheduled = false;
 
 class Collection {
-	list;
-	mapper;
-	filterer = () => true;
+	#list;
+	#map;
+	#filter = () => true;
+	#views = [];
 
 	constructor(list) {
-		this.list = list;
+		this.#list = list;
 	}
 
 	map(mapper) {
-		this.mapper = mapper;
+		this.#map = mapper;
 
 		return this;
 	}
 
-	filter(filterer) {
-		this.filterer = filterer;
+	filter(filter) {
+		this.#filter = filter;
 
 		return this;
+	}
+
+	*[Symbol.iterator]() {
+		let i = 0;
+
+		for (let index = 0; index < this.#list.length; index++) {
+			let item = this.#list[index];
+
+			if (!this.#filter({item, index})) {
+				continue;
+			}
+
+			let view = this.#views[i];
+
+			if (!view) {
+				view = watch({});
+
+				this.#views.push(view);
+			}
+
+			if (item !== view.item) {
+				view.item = item;
+			}
+
+			view.index = index;
+
+			yield () => {
+				return this.#map(view);
+			};
+
+			i++;
+		}
+
+		this.#views.splice(i, Infinity);
 	}
 }
 
@@ -33,46 +68,30 @@ class Element {
 		this.element = new WeakRef(element);
 	}
 
-	#run(callback, value = () => {}) {
-		let immediate = typeof value !== "function";
-		let cb = () => {
-			let element = this.element?.deref();
-
-			if (element && registered.has(element)) {
-				callback(element, immediate ? value : value());
-			}
-		};
-		let element = this.element?.deref();
-
-		if (element) {
-			registered.add(element);
-		}
-
-		if (immediate) {
-			cb();
-		} else {
-			effect(cb);
-		}
-	}
-
 	prop(key, value) {
-		this.#run((element, value) => {
-			element[key] = value;
-		}, value);
+		run(
+			this.element,
+			(element, value) => {
+				element[key] = value;
+			},
+			value
+		);
 
 		return this;
 	}
 
 	attr(key, value) {
-		this.#run((element, value) => {
-			if (value == null) {
-				element.removeAttribute(key);
-			} else if (value === true || value === false) {
-				element.toggleAttribute(key, value);
-			} else {
-				element.setAttribute(key, value);
-			}
-		}, value);
+		run(
+			this.element,
+			(element, value) => {
+				if (value === true || value === false || value == null) {
+					element.toggleAttribute(key, !!value);
+				} else {
+					element.setAttribute(key, value);
+				}
+			},
+			value
+		);
 
 		return this;
 	}
@@ -89,13 +108,17 @@ class Element {
 		}, {});
 
 		for (let [key, value] of Object.entries(classes)) {
-			this.#run((element, value) => {
-				let keys = key.split(" ");
+			run(
+				this.element,
+				(element, value) => {
+					let keys = key.split(" ");
 
-				for (let k of keys) {
-					element.classList.toggle(k, value);
-				}
-			}, value);
+					for (let k of keys) {
+						element.classList.toggle(k, value);
+					}
+				},
+				value
+			);
 		}
 
 		return this;
@@ -103,9 +126,13 @@ class Element {
 
 	styles(styles) {
 		for (let [key, value] of Object.entries(styles)) {
-			this.#run((element, value) => {
-				element.style.setProperty(key, value);
-			}, value);
+			run(
+				this.element,
+				(element, value) => {
+					element.style.setProperty(key, value);
+				},
+				value
+			);
 		}
 
 		return this;
@@ -113,9 +140,13 @@ class Element {
 
 	data(data) {
 		for (let [key, value] of Object.entries(data)) {
-			this.#run((element, value) => {
-				element.dataSet[key] = value;
-			}, value);
+			run(
+				this.element,
+				(element, value) => {
+					element.dataSet[key] = value;
+				},
+				value
+			);
 		}
 
 		return this;
@@ -133,18 +164,9 @@ class Element {
 		return this;
 	}
 
-	#bounds(element) {
-		let bounds = [document.createComment(""), document.createComment("")];
-
-		element.append(...bounds);
-
-		bounds = bounds.map((c) => new WeakRef(c));
-
-		return () => bounds.map((b) => b.deref());
-	}
-
 	append(...children) {
 		children = children.flat(Infinity);
+
 		let element = this.element?.deref();
 
 		if (element) {
@@ -159,38 +181,17 @@ class Element {
 					}
 				} else if (isObject && child instanceof Collection) {
 					let views = [];
-					let bounds = this.#bounds(element);
+					let bounds = comments(element);
 
-					this.#run(() => {
+					run(this.element, () => {
 						let [start, end] = bounds();
 						let currentChild =
 							start && start.nextSibling !== end ? start.nextSibling : null;
 						let fragment = new DocumentFragment();
-						let i = 0;
 
-						for (let index = 0; index < child.list.length; index++) {
-							let item = child.list[index];
-
-							if (!child.filterer({item, index})) {
-								continue;
-							}
-
-							let view = views[i];
-
-							if (!view) {
-								view = watch({});
-
-								views.push(view);
-							}
-
-							if (item !== view.item) {
-								view.item = item;
-							}
-
-							view.index = index;
-
+						for (let item of child) {
 							if (!currentChild) {
-								let element = child.mapper(view)?.element?.deref();
+								let element = item()?.element?.deref();
 
 								if (element) {
 									fragment.append(element);
@@ -201,35 +202,20 @@ class Element {
 								currentChild?.nextSibling !== end
 									? currentChild?.nextSibling
 									: null;
-
-							i++;
 						}
 
 						end.before(fragment);
 
-						views.splice(i, Infinity);
-
-						while (currentChild && currentChild !== end) {
-							let nextChild = currentChild.nextSibling;
-
-							currentChild.remove();
-
-							currentChild = nextChild;
-						}
+						clear(currentChild, end);
 					});
 				} else if (typeof child === "function") {
-					let bounds = this.#bounds(element);
+					let bounds = comments(element);
 
-					this.#run(() => {
+					run(this.element, () => {
 						let [start, end] = bounds();
 						let currentChild = start ? start.nextSibling : null;
-						while (currentChild && currentChild !== end) {
-							let nextChild = currentChild.nextSibling;
 
-							currentChild.remove();
-
-							currentChild = nextChild;
-						}
+						clear(currentChild, end);
 
 						let fragment = new DocumentFragment();
 						let c = child();
@@ -256,12 +242,58 @@ class Element {
 	}
 
 	text(txt) {
-		this.#run((element, txt) => {
-			element.textContent = txt;
-		}, txt);
+		run(
+			this.element,
+			(element, txt) => {
+				element.textContent = txt;
+			},
+			txt
+		);
 
 		return this;
 	}
+}
+
+function run(element, callback, value = () => {}) {
+	let immediate = typeof value !== "function";
+	let cb = () => {
+		let el = element?.deref();
+
+		if (el && registered.has(el)) {
+			callback(el, immediate ? value : value());
+		}
+	};
+	let el = element?.deref();
+
+	if (el) {
+		registered.add(el);
+	}
+
+	if (immediate) {
+		cb();
+	} else {
+		effect(cb);
+	}
+}
+
+function clear(currentChild, end) {
+	while (currentChild && currentChild !== end) {
+		let nextChild = currentChild.nextSibling;
+
+		currentChild.remove();
+
+		currentChild = nextChild;
+	}
+}
+
+function comments(element) {
+	let bounds = [document.createComment(""), document.createComment("")];
+
+	element.append(...bounds);
+
+	bounds = bounds.map((c) => new WeakRef(c));
+
+	return () => bounds.map((b) => b.deref());
 }
 
 function get(o, key, r) {
