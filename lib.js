@@ -164,7 +164,6 @@ class Element {
 						element.append(child);
 					}
 				} else if (isObject && child instanceof Collection) {
-					let views = [];
 					let bounds = comments(element);
 
 					this.#run(() => {
