@@ -62,36 +62,32 @@ class Collection {
 }
 
 class Element {
-	element;
+	#element;
+
+	get element() {
+		return this.#element?.deref();
+	}
 
 	constructor(element) {
-		this.element = new WeakRef(element);
+		this.#element = new WeakRef(element);
 	}
 
 	prop(key, value) {
-		run(
-			this.element,
-			(element, value) => {
-				element[key] = value;
-			},
-			value
-		);
+		this.#run((element, value) => {
+			element[key] = value;
+		}, value);
 
 		return this;
 	}
 
 	attr(key, value) {
-		run(
-			this.element,
-			(element, value) => {
-				if (value === true || value === false || value == null) {
-					element.toggleAttribute(key, !!value);
-				} else {
-					element.setAttribute(key, value);
-				}
-			},
-			value
-		);
+		this.#run((element, value) => {
+			if (value === true || value === false || value == null) {
+				element.toggleAttribute(key, !!value);
+			} else {
+				element.setAttribute(key, value);
+			}
+		}, value);
 
 		return this;
 	}
@@ -108,17 +104,13 @@ class Element {
 		}, {});
 
 		for (let [key, value] of Object.entries(classes)) {
-			run(
-				this.element,
-				(element, value) => {
-					let keys = key.split(" ");
+			this.#run((element, value) => {
+				let keys = key.split(" ");
 
-					for (let k of keys) {
-						element.classList.toggle(k, value);
-					}
-				},
-				value
-			);
+				for (let k of keys) {
+					element.classList.toggle(k, value);
+				}
+			}, value);
 		}
 
 		return this;
@@ -126,13 +118,9 @@ class Element {
 
 	styles(styles) {
 		for (let [key, value] of Object.entries(styles)) {
-			run(
-				this.element,
-				(element, value) => {
-					element.style.setProperty(key, value);
-				},
-				value
-			);
+			this.#run((element, value) => {
+				element.style.setProperty(key, value);
+			}, value);
 		}
 
 		return this;
@@ -140,20 +128,16 @@ class Element {
 
 	data(data) {
 		for (let [key, value] of Object.entries(data)) {
-			run(
-				this.element,
-				(element, value) => {
-					element.dataSet[key] = value;
-				},
-				value
-			);
+			this.#run((element, value) => {
+				element.dataSet[key] = value;
+			}, value);
 		}
 
 		return this;
 	}
 
 	on(events, handler, options = {}) {
-		let element = this.element?.deref();
+		let element = this.element;
 
 		if (element) {
 			for (let event of [].concat(events)) {
@@ -167,14 +151,14 @@ class Element {
 	append(...children) {
 		children = children.flat(Infinity);
 
-		let element = this.element?.deref();
+		let element = this.element;
 
 		if (element) {
 			for (let child of children) {
 				let isObject = typeof child === "object";
 
 				if (isObject && child instanceof Element) {
-					child = child.element?.deref();
+					child = child.element;
 
 					if (child) {
 						element.append(child);
@@ -183,7 +167,7 @@ class Element {
 					let views = [];
 					let bounds = comments(element);
 
-					run(this.element, () => {
+					this.#run(() => {
 						let [start, end] = bounds();
 						let currentChild =
 							start && start.nextSibling !== end ? start.nextSibling : null;
@@ -191,7 +175,7 @@ class Element {
 
 						for (let item of child) {
 							if (!currentChild) {
-								let element = item()?.element?.deref();
+								let element = item()?.element;
 
 								if (element) {
 									fragment.append(element);
@@ -211,7 +195,7 @@ class Element {
 				} else if (typeof child === "function") {
 					let bounds = comments(element);
 
-					run(this.element, () => {
+					this.#run(() => {
 						let [start, end] = bounds();
 						let currentChild = start ? start.nextSibling : null;
 
@@ -222,7 +206,7 @@ class Element {
 
 						if (c != null) {
 							if (typeof c === "object" && c instanceof Element) {
-								c = c.element?.deref();
+								c = c.element;
 							}
 
 							if (c != null) {
@@ -242,37 +226,33 @@ class Element {
 	}
 
 	text(txt) {
-		run(
-			this.element,
-			(element, txt) => {
-				element.textContent = txt;
-			},
-			txt
-		);
+		this.#run((element, txt) => {
+			element.textContent = txt;
+		}, txt);
 
 		return this;
 	}
-}
 
-function run(element, callback, value = () => {}) {
-	let immediate = typeof value !== "function";
-	let cb = () => {
-		let el = element?.deref();
+	#run(callback, value = () => {}) {
+		let immediate = typeof value !== "function";
+		let cb = () => {
+			let el = this.element;
 
-		if (el && registered.has(el)) {
-			callback(el, immediate ? value : value());
+			if (el && registered.has(el)) {
+				callback(el, immediate ? value : value());
+			}
+		};
+		let el = this.element;
+
+		if (el) {
+			registered.add(el);
 		}
-	};
-	let el = element?.deref();
 
-	if (el) {
-		registered.add(el);
-	}
-
-	if (immediate) {
-		cb();
-	} else {
-		effect(cb);
+		if (immediate) {
+			cb();
+		} else {
+			effect(cb);
+		}
 	}
 }
 
@@ -368,7 +348,7 @@ export function use(element) {
 	return new Element(element);
 }
 
-export let svg_namespace = "http://www.w3.org/2000/svg";
+let svg_namespace = "http://www.w3.org/2000/svg";
 
 let namespace;
 

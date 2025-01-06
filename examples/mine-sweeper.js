@@ -1,4 +1,4 @@
-import {watch, create, each, define} from "../lib.js";
+import {watch, create, define} from "../lib.js";
 
 const PLAY_STATES = {
 	PLAYING: 0,
@@ -43,35 +43,35 @@ export default function mineSweeper(attributes) {
 		.attr("aria-colcount", width)
 		.attr("role", "grid")
 		.append(
-			each(range(height)).map((row) =>
+			range(height).map((row) =>
 				create("div")
 					.attr("role", "row")
-					.append(each(range(width)).map((col) => cell(row, col)))
+					.append(range(width).map((col) => cell(row, col)))
 			)
 		);
 
 	function cell(row, col) {
 		let square = watch({
-			x: col.index,
-			y: row.index,
+			x: col,
+			y: row,
 			isFlagged: false,
 			isRevealed: false,
 			isArmed: false,
 			armedAdjacentCount: 0,
 		});
 
-		gameBoard.set(`${col.index} ${row.index}`, square);
+		gameBoard.set(`${col} ${row}`, square);
 
 		return create("div")
 			.attr("role", "gridcell")
-			.attr("aria-rowindex", row.index)
-			.attr("aria-colindex", col.index)
+			.attr("aria-rowindex", row)
+			.attr("aria-colindex", col)
 			.append(
 				create("button")
 					.attr("type", "button")
 					.styles({
-						"--column": col.index + 1,
-						"--row": row.index + 1,
+						"--column": col + 1,
+						"--row": row + 1,
 					})
 					.attr("aria-label", () => (square.isRevealed ? null : "Hidden"))
 					.classes({
@@ -84,9 +84,9 @@ export default function mineSweeper(attributes) {
 							return classes;
 						}, {}),
 					})
-					.on("click", revealSquare(col.index, row.index))
-					.on("contextmenu", toggleFlag(col.index, row.index))
-					.on("keydown", moveFocus(col.index, row.index))
+					.on("click", revealSquare(col, row))
+					.on("contextmenu", toggleFlag(col, row))
+					.on("keydown", moveFocus(col, row))
 					.text(() => {
 						if (!square.isRevealed) {
 							return square.isFlagged ? "🚩" : "";
