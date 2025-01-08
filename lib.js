@@ -155,6 +155,10 @@ class Element {
 
 		if (element) {
 			for (let child of children) {
+				if (typeof child === "function") {
+					child = [child];
+				}
+
 				let isObject = typeof child === "object";
 
 				if (isObject && child instanceof Element) {
@@ -163,7 +167,7 @@ class Element {
 					if (child) {
 						element.append(child);
 					}
-				} else if (isObject && child instanceof Collection) {
+				} else if (isObject && child[Symbol.iterator] != null) {
 					let bounds = comments(element);
 
 					this.#run(() => {
@@ -174,9 +178,10 @@ class Element {
 
 						for (let item of child) {
 							if (!currentChild) {
-								let element = item()?.element;
+								let result = item();
+								let element = result?.element ?? result;
 
-								if (element) {
+								if (element != null) {
 									fragment.append(element);
 								}
 							}
@@ -190,30 +195,6 @@ class Element {
 						end.before(fragment);
 
 						clear(currentChild, end);
-					});
-				} else if (typeof child === "function") {
-					let bounds = comments(element);
-
-					this.#run(() => {
-						let [start, end] = bounds();
-						let currentChild = start ? start.nextSibling : null;
-
-						clear(currentChild, end);
-
-						let fragment = new DocumentFragment();
-						let c = child();
-
-						if (c != null) {
-							if (typeof c === "object" && c instanceof Element) {
-								c = c.element;
-							}
-
-							if (c != null) {
-								fragment.append(c);
-							}
-
-							end.before(fragment);
-						}
 					});
 				} else {
 					element.append(child);
