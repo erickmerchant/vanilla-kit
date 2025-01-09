@@ -29,9 +29,7 @@ class Collection {
 	*[Symbol.iterator]() {
 		let i = 0;
 
-		for (let index = 0; index < this.#list.length; index++) {
-			let item = this.#list[index];
-
+		for (let [index, item] of this.#list.entries()) {
 			if (!this.#filter({item, index})) {
 				continue;
 			}
@@ -73,7 +71,7 @@ class Element {
 	}
 
 	prop(key, value) {
-		this.#run((element, value) => {
+		this.#mutate((element, value) => {
 			element[key] = value;
 		}, value);
 
@@ -81,7 +79,7 @@ class Element {
 	}
 
 	attr(key, value) {
-		this.#run((element, value) => {
+		this.#mutate((element, value) => {
 			if (value === true || value === false || value == null) {
 				element.toggleAttribute(key, !!value);
 			} else {
@@ -104,10 +102,8 @@ class Element {
 		}, {});
 
 		for (let [key, value] of Object.entries(classes)) {
-			this.#run((element, value) => {
-				let keys = key.split(" ");
-
-				for (let k of keys) {
+			this.#mutate((element, value) => {
+				for (let k of key.split(" ")) {
 					element.classList.toggle(k, value);
 				}
 			}, value);
@@ -118,7 +114,7 @@ class Element {
 
 	styles(styles) {
 		for (let [key, value] of Object.entries(styles)) {
-			this.#run((element, value) => {
+			this.#mutate((element, value) => {
 				element.style.setProperty(key, value);
 			}, value);
 		}
@@ -128,7 +124,7 @@ class Element {
 
 	data(data) {
 		for (let [key, value] of Object.entries(data)) {
-			this.#run((element, value) => {
+			this.#mutate((element, value) => {
 				element.dataSet[key] = value;
 			}, value);
 		}
@@ -170,7 +166,7 @@ class Element {
 				} else if (isObject && child[Symbol.iterator] != null) {
 					let bounds = comments(element);
 
-					this.#run(() => {
+					this.#mutate(() => {
 						let [start, end] = bounds();
 						let currentChild =
 							start && start.nextSibling !== end ? start.nextSibling : null;
@@ -206,14 +202,14 @@ class Element {
 	}
 
 	text(txt) {
-		this.#run((element, txt) => {
+		this.#mutate((element, txt) => {
 			element.textContent = txt;
 		}, txt);
 
 		return this;
 	}
 
-	#run(callback, value = () => {}) {
+	#mutate(callback, value = () => {}) {
 		let immediate = typeof value !== "function";
 		let cb = () => {
 			let el = this.element;
@@ -329,7 +325,6 @@ export function use(element) {
 }
 
 let svg_namespace = "http://www.w3.org/2000/svg";
-
 let namespace;
 
 export function svg(cb) {
@@ -371,9 +366,11 @@ export function define(name, view, shadow = false) {
 				let target = host;
 
 				if (shadow) {
-					this.attachShadow({
-						mode: typeof shadow === "string" ? shadow : "open",
-					});
+					if (!this.shadowRoot) {
+						this.attachShadow({
+							mode: typeof shadow === "string" ? shadow : "open",
+						});
+					}
 
 					target = use(this.shadowRoot);
 				}

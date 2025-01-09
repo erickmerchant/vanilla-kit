@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en-US">
 	<head>
 		<meta charset="utf-8" />
@@ -15,6 +15,10 @@
 		</style>
 	</head>
 	<body>
-		<mine-sweeper mine-count="10" height="8" width="8"> </mine-sweeper>
+		<mine-sweeper mine-count="10" height="8" width="8">
+			<template shadowrootmode="open">
+				<link rel="stylesheet" href="./mine-sweeper.css" />
+			</template>
+		</mine-sweeper>
 	</body>
 </html>

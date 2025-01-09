@@ -20,42 +20,7 @@
 	width: calc(2.5em * var(--width));
 }
 
-:where(.info-panel) {
-	display: flex;
-	padding-block: 1em;
-	padding-inline: 0.3em;
-	flex-wrap: wrap;
-	gap: 1em;
-	justify-content: space-between;
-	width: 100%;
-}
-
-:where(.flag-count) {
-	display: grid;
-	gap: 0.5em;
-	grid-auto-flow: column;
-}
-
-:where(.time) {
-	display: grid;
-	gap: 0.5em;
-	grid-auto-flow: column;
-}
-
-:where([role="grid"]) {
-	display: grid;
-	background-color: oklch(80% 0 0);
-	grid-auto-rows: auto;
-	grid-template-columns: repeat(var(--width), 1fr);
-	gap: 1px;
-	width: 100%;
-}
-
-:where([role="row"]) {
-	display: contents;
-}
-
-:where(button) {
+button {
 	grid-column: var(--column);
 	grid-row: var(--row);
 	appearance: none;
@@ -107,4 +72,39 @@
 	&:where(.flagged.revealed:not(.armed-state)) {
 		--content: ;
 	}
+}
+
+.info-panel {
+	display: flex;
+	padding-block: 1em;
+	padding-inline: 0.3em;
+	flex-wrap: wrap;
+	gap: 1em;
+	justify-content: space-between;
+	width: 100%;
+}
+
+.flag-count {
+	display: grid;
+	gap: 0.5em;
+	grid-auto-flow: column;
+}
+
+.time {
+	display: grid;
+	gap: 0.5em;
+	grid-auto-flow: column;
+}
+
+[role="grid"] {
+	display: grid;
+	background-color: oklch(80% 0 0);
+	grid-auto-rows: auto;
+	grid-template-columns: repeat(var(--width), 1fr);
+	gap: 1px;
+	width: 100%;
+}
+
+[role="row"] {
+	display: contents;
 }
