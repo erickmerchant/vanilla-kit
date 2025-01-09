@@ -3,6 +3,13 @@ let queue = [];
 let reads = new WeakMap();
 let registered = new WeakSet();
 let scheduled = false;
+let svg_namespace = "http://www.w3.org/2000/svg";
+let namespace;
+let attributeObserver = new MutationObserver((mutationList) => {
+	for (let {target, attributeName} of mutationList) {
+		target.watched[attributeName] = target.getAttribute(attributeName);
+	}
+});
 
 class Collection {
 	#list;
@@ -232,6 +239,93 @@ class Element {
 	}
 }
 
+export function effect(callback) {
+	queue.push(callback);
+
+	if (!scheduled) {
+		scheduled = true;
+
+		setTimeout(() => {
+			scheduled = false;
+
+			let callbacks = queue.splice(0, Infinity);
+			let prev = current;
+
+			for (let cb of callbacks) {
+				current = cb;
+
+				cb();
+			}
+
+			current = prev;
+		}, 0);
+	}
+}
+
+export function watch(object) {
+	reads.set(object, new Map());
+
+	return new Proxy(object, {set, get, deleteProperty});
+}
+
+export function use(element) {
+	return new Element(element);
+}
+
+export function svg(cb) {
+	namespace = svg_namespace;
+
+	let result = cb();
+
+	namespace = null;
+
+	return result;
+}
+
+export function create(tag) {
+	return use(
+		namespace
+			? document.createElementNS(namespace, tag)
+			: document.createElement(tag)
+	);
+}
+
+export function each(list) {
+	return new Collection(list);
+}
+
+export function define(name, view, shadow = false) {
+	customElements.define(
+		name,
+		class extends HTMLElement {
+			watched = watch({});
+
+			connectedCallback() {
+				let host = use(this);
+				let target = host;
+
+				if (shadow) {
+					if (!this.shadowRoot) {
+						this.attachShadow({
+							mode: typeof shadow === "string" ? shadow : "open",
+						});
+					}
+
+					target = use(this.shadowRoot);
+				}
+
+				for (let attr of this.attributes) {
+					this.watched[attr.name] = attr.value;
+				}
+
+				attributeObserver.observe(this, {attributes: true});
+
+				target.append(view.call(host, this.watched));
+			}
+		}
+	);
+}
+
 function clear(currentChild, end) {
 	while (currentChild && currentChild !== end) {
 		let nextChild = currentChild.nextSibling;
@@ -289,100 +383,4 @@ function deleteProperty(o, key) {
 	modify(o, key);
 
 	return Reflect.deleteProperty(o, key);
-}
-
-export function effect(callback) {
-	queue.push(callback);
-
-	if (!scheduled) {
-		scheduled = true;
-
-		setTimeout(() => {
-			scheduled = false;
-
-			let callbacks = queue.splice(0, Infinity);
-			let prev = current;
-
-			for (let cb of callbacks) {
-				current = cb;
-
-				cb();
-			}
-
-			current = prev;
-		}, 0);
-	}
-}
-
-export function watch(object) {
-	reads.set(object, new Map());
-
-	return new Proxy(object, {set, get, deleteProperty});
-}
-
-export function use(element) {
-	return new Element(element);
-}
-
-let svg_namespace = "http://www.w3.org/2000/svg";
-let namespace;
-
-export function svg(cb) {
-	namespace = svg_namespace;
-
-	let result = cb();
-
-	namespace = null;
-
-	return result;
-}
-
-export function create(tag) {
-	return use(
-		namespace
-			? document.createElementNS(namespace, tag)
-			: document.createElement(tag)
-	);
-}
-
-export function each(list) {
-	return new Collection(list);
-}
-
-let attributeObserver = new MutationObserver((mutationList) => {
-	for (let {target, attributeName} of mutationList) {
-		target.watched[attributeName] = target.getAttribute(attributeName);
-	}
-});
-
-export function define(name, view, shadow = false) {
-	customElements.define(
-		name,
-		class extends HTMLElement {
-			watched = watch({});
-
-			connectedCallback() {
-				let host = use(this);
-				let target = host;
-
-				if (shadow) {
-					if (!this.shadowRoot) {
-						this.attachShadow({
-							mode: typeof shadow === "string" ? shadow : "open",
-						});
-					}
-
-					target = use(this.shadowRoot);
-				}
-
-				for (let attr of this.attributes) {
-					this.watched[attr.name] = attr.value;
-				}
-
-				attributeObserver.observe(this, {attributes: true});
-
-				target.append(view.call(host, this.watched));
-			}
-		}
-	);
 }
