@@ -3,13 +3,14 @@ let queue = [];
 let reads = new WeakMap();
 let registered = new WeakSet();
 let scheduled = false;
-let svg_namespace = "http://www.w3.org/2000/svg";
-let namespace;
+let _namespace;
 let attributeObserver = new MutationObserver((mutationList) => {
 	for (let {target, attributeName} of mutationList) {
 		target.watched[attributeName] = target.getAttribute(attributeName);
 	}
 });
+
+export let svg_namespace = "http://www.w3.org/2000/svg";
 
 class Collection {
 	#list;
@@ -272,20 +273,20 @@ export function use(element) {
 	return new Element(element);
 }
 
-export function svg(cb) {
-	namespace = svg_namespace;
+export function namespace(ns, cb) {
+	_namespace = ns;
 
 	let result = cb();
 
-	namespace = null;
+	_namespace = null;
 
 	return result;
 }
 
 export function create(tag) {
 	return use(
-		namespace
-			? document.createElementNS(namespace, tag)
+		_namespace
+			? document.createElementNS(_namespace, tag)
 			: document.createElement(tag)
 	);
 }

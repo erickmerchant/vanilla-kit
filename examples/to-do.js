@@ -1,4 +1,12 @@
-import {watch, effect, create, use, svg, each, define} from "../lib.js";
+import {
+	watch,
+	effect,
+	create,
+	namespace,
+	svg_namespace,
+	each,
+	define,
+} from "../lib.js";
 
 export default function todoApp() {
 	let state = watch(
@@ -138,7 +146,7 @@ export default function todoApp() {
 					view.item.isDeleted = true;
 				})
 				.append(
-					svg(() =>
+					namespace(svg_namespace, () =>
 						create("svg")
 							.attr("viewBox", "0 0 16 16")
 							.append(

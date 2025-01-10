@@ -84,18 +84,6 @@ button {
 	width: 100%;
 }
 
-.flag-count {
-	display: grid;
-	gap: 0.5em;
-	grid-auto-flow: column;
-}
-
-.time {
-	display: grid;
-	gap: 0.5em;
-	grid-auto-flow: column;
-}
-
 [role="grid"] {
 	display: grid;
 	background-color: oklch(80% 0 0);

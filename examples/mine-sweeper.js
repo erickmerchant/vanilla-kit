@@ -25,15 +25,11 @@ export default function mineSweeper(attributes) {
 	let infoPanel = create("div")
 		.classes("info-panel")
 		.append(
-			create("div")
-				.classes("flag-count")
-				.append(create("div").text("🚩"), () => state.flagCount),
+			create("div").text(() => `🚩 ${state.flagCount}`),
 			create("div")
 				.attr("aria-live", "polite")
 				.text(() => ["", "💀", "🎉"][state.playState]),
-			create("div")
-				.classes("time")
-				.append(create("div").text("⏱️"), () => state.time)
+			create("div").text(() => `⏱️ ${state.time}`)
 		);
 	let board = create("div")
 		.attr("aria-rowcount", height)
