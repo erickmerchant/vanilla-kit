@@ -1,4 +1,16 @@
-import {watch, create, define} from "../lib.js";
+import {
+	watch,
+	html,
+	define,
+	classes,
+	nodes,
+	text,
+	attr,
+	styles,
+	on,
+} from "../lib.js";
+
+let {div, button} = html;
 
 const PLAY_STATES = {
 	PLAYING: 0,
@@ -6,7 +18,7 @@ const PLAY_STATES = {
 	WON: 2,
 };
 
-export default function mineSweeper(attributes) {
+export default function* mineSweeper(attributes) {
 	let height = +attributes.height;
 	let width = +attributes.width;
 	let mineCount = +attributes["mine-count"];
@@ -22,26 +34,30 @@ export default function mineSweeper(attributes) {
 	let gameBoard = new Map();
 	let adjacentMap = new Map();
 
-	let infoPanel = create("div")
-		.classes("info-panel")
-		.append(
-			create("div").text(() => `🚩 ${state.flagCount}`),
-			create("div")
-				.attr("aria-live", "polite")
-				.text(() => ["", "💀", "🎉"][state.playState]),
-			create("div").text(() => `⏱️ ${state.time}`)
-		);
-	let board = create("div")
-		.attr("aria-rowcount", height)
-		.attr("aria-colcount", width)
-		.attr("role", "grid")
-		.append(
+	let infoPanel = div(
+		classes("info-panel"),
+		nodes(
+			div(text(() => `🚩 ${state.flagCount}`)),
+			div(
+				attr("aria-live", "polite"),
+				text(() => ["", "💀", "🎉"][state.playState])
+			),
+			div(text(() => `⏱️ ${state.time}`))
+		)
+	);
+	let board = div(
+		attr("aria-rowcount", height),
+		attr("aria-colcount", width),
+		attr("role", "grid"),
+		nodes(
 			range(height).map((row) =>
-				create("div")
-					.attr("role", "row")
-					.append(range(width).map((col) => cell(row, col)))
+				div(
+					attr("role", "row"),
+					nodes(range(width).map((col) => cell(row, col)))
+				)
 			)
-		);
+		)
+	);
 
 	function cell(row, col) {
 		let square = watch({
@@ -55,19 +71,19 @@ export default function mineSweeper(attributes) {
 
 		gameBoard.set(`${col} ${row}`, square);
 
-		return create("div")
-			.attr("role", "gridcell")
-			.attr("aria-rowindex", row)
-			.attr("aria-colindex", col)
-			.append(
-				create("button")
-					.attr("type", "button")
-					.styles({
+		return div(
+			attr("role", "gridcell"),
+			attr("aria-rowindex", row),
+			attr("aria-colindex", col),
+			nodes(
+				button(
+					attr("type", "button"),
+					styles({
 						"--column": col + 1,
 						"--row": row + 1,
-					})
-					.attr("aria-label", () => (square.isRevealed ? null : "Hidden"))
-					.classes({
+					}),
+					attr("aria-label", () => (square.isRevealed ? null : "Hidden")),
+					classes({
 						revealed: () => square.isRevealed,
 						flagged: () => square.isFlagged,
 						...range(8).reduce((classes, i) => {
@@ -76,11 +92,11 @@ export default function mineSweeper(attributes) {
 
 							return classes;
 						}, {}),
-					})
-					.on("click", revealSquare(col, row))
-					.on("contextmenu", toggleFlag(col, row))
-					.on("keydown", moveFocus(col, row))
-					.text(() => {
+					}),
+					on("click", revealSquare(col, row)),
+					on("contextmenu", toggleFlag(col, row)),
+					on("keydown", moveFocus(col, row)),
+					text(() => {
 						if (!square.isRevealed) {
 							return square.isFlagged ? "🚩" : "";
 						} else {
@@ -91,15 +107,17 @@ export default function mineSweeper(attributes) {
 									: square.armedAdjacentCount || "";
 						}
 					})
-			);
+				)
+			)
+		);
 	}
 
-	this.styles({
+	yield styles({
 		"--width": width,
 		"--height": height,
 	});
 
-	return [infoPanel, board];
+	yield nodes(infoPanel, board);
 
 	function updateTime() {
 		state.time = Math.floor((Date.now() - startTime) / 1000);

@@ -1,14 +1,22 @@
 import {
 	watch,
 	effect,
-	create,
-	namespace,
-	svg_namespace,
+	html,
+	svg,
 	each,
 	define,
+	on,
+	classes,
+	text,
+	attr,
+	prop,
+	nodes,
 } from "../lib.js";
 
-export default function todoApp() {
+let {input, label, h1, li, button, ol} = html;
+let {title, path} = svg;
+
+export default function* todoApp() {
 	let state = watch(
 		JSON.parse(localStorage.getItem("to-do-app")) ?? {
 			showDone: true,
@@ -25,19 +33,19 @@ export default function todoApp() {
 		localStorage.setItem("to-do-app", JSON.stringify(state));
 	});
 
-	this.on(["dragover", "dragleave", "drop"], function (e) {
+	yield on(["dragover", "dragleave", "drop"], function (e) {
 		if (dragState.item != null) {
 			e.preventDefault();
 		}
 	});
 
-	let h1 = create("h1").classes("title").text("To Do List");
-	let showDoneCheckbox = create("input")
-		.classes("show-done")
-		.attr("id", "show-done")
-		.attr("type", "checkbox")
-		.prop("checked", () => state.showDone)
-		.on("change", function () {
+	let heading = h1(classes("title"), text("To Do List"));
+	let showDoneCheckbox = input(
+		classes("show-done"),
+		attr("id", "show-done"),
+		attr("type", "checkbox"),
+		prop("checked", () => state.showDone),
+		on("change", function () {
 			let show = this.checked;
 
 			for (let item of state.list) {
@@ -48,14 +56,13 @@ export default function todoApp() {
 			}
 
 			state.showDone = show;
-		});
-	let showDoneLabel = create("label")
-		.attr("for", "show-done")
-		.text("Show done");
-	let textInput = create("input")
-		.classes("input-text")
-		.attr("placeholder", "What do you have to do?")
-		.on("keypress", function (e) {
+		})
+	);
+	let showDoneLabel = label(attr("for", "show-done"), text("Show done"));
+	let textInput = input(
+		classes("input-text"),
+		attr("placeholder", "What do you have to do?"),
+		on("keypress", function (e) {
 			if (e.keyCode === 13) {
 				e.preventDefault();
 
@@ -76,41 +83,83 @@ export default function todoApp() {
 
 				this.value = "";
 			}
-		});
+		})
+	);
 	let itemsList = each(state.list)
 		.filter(
 			(view) => state.showDone || !view.item.isDone || view.item.isLeaving
 		)
 		.map((view) => {
-			let li = create("li")
-				.classes("item", {
+			let toggleDoneCheckbox = input(
+				attr("type", "checkbox"),
+				attr("id", () => `item-${view.index}`),
+				prop("checked", () => view.item.isDone),
+				on("change", function () {
+					let isDone = this.checked;
+
+					if (!state.showDone && isDone) {
+						view.item.isLeaving = true;
+					}
+
+					view.item.isDone = isDone;
+				})
+			);
+			let itemLabel = label(
+				attr("for", () => `item-${view.index}`),
+				text(() => view.item.text)
+			);
+			let deleteButton = button(
+				attr("type", "button"),
+				classes("delete"),
+				on("click", function () {
+					view.item.isLeaving = true;
+					view.item.isDeleted = true;
+				}),
+				nodes(
+					svg(
+						attr("viewBox", "0 0 16 16"),
+						nodes(
+							title(text("Delete")),
+							path(
+								attr(
+									"d",
+									"M4 1 L8 5 L12 1 L15 4 L11 8 L15 12 L12 15 L8 11 L4 15 L1 12 L5 8 L1 4 Z"
+								)
+							)
+						)
+					)
+				)
+			);
+
+			return li(
+				classes("item", {
 					done: () => view.item.isDone,
 					leaving: () => view.item.isLeaving,
 					entering: () => view.item.isEntering,
 					dragging: () => dragState.item === view.item,
-				})
-				.prop("draggable", true)
-				.on("dragstart", function (e) {
+				}),
+				prop("draggable", true),
+				on("dragstart", function (e) {
 					dragState.item = view.item;
 
 					e.dataTransfer.effectAllowed = "move";
 					// e.dataTransfer.setDragImage(this, e.offsetX, e.offsetY);
-				})
-				.on("dragend", function () {
+				}),
+				on("dragend", function () {
 					dragState.item = null;
-				})
-				.on("dragenter", function () {
+				}),
+				on("dragenter", function () {
 					if (dragState.item != null) {
 						let from = state.list.findIndex((t) => t === dragState.item);
 
 						state.list.splice(from, 1);
 						state.list.splice(view.index, 0, dragState.item);
 					}
-				})
-				.on(["dragover", "dragleave", "drop"], function (e) {
+				}),
+				on(["dragover", "dragleave", "drop"], function (e) {
 					e.preventDefault();
-				})
-				.on("animationend", function () {
+				}),
+				on("animationend", function () {
 					view.item.isLeaving = false;
 					view.item.isEntering = false;
 
@@ -120,53 +169,14 @@ export default function todoApp() {
 							1
 						);
 					}
-				});
-
-			let toggleDoneCheckbox = create("input")
-				.attr("type", "checkbox")
-				.attr("id", () => `item-${view.index}`)
-				.prop("checked", () => view.item.isDone)
-				.on("change", function () {
-					let isDone = this.checked;
-
-					if (!state.showDone && isDone) {
-						view.item.isLeaving = true;
-					}
-
-					view.item.isDone = isDone;
-				});
-			let itemLabel = create("label")
-				.attr("for", () => `item-${view.index}`)
-				.text(() => view.item.text);
-			let deleteButton = create("button")
-				.attr("type", "button")
-				.classes("delete")
-				.on("click", function () {
-					view.item.isLeaving = true;
-					view.item.isDeleted = true;
-				})
-				.append(
-					namespace(svg_namespace, () =>
-						create("svg")
-							.attr("viewBox", "0 0 16 16")
-							.append(
-								create("title").text("Delete"),
-								create("path").attr(
-									"d",
-									"M4 1 L8 5 L12 1 L15 4 L11 8 L15 12 L12 15 L8 11 L4 15 L1 12 L5 8 L1 4 Z"
-								)
-							)
-					)
-				);
-
-			li.append(toggleDoneCheckbox, itemLabel, deleteButton);
-
-			return li;
+				}),
+				nodes(toggleDoneCheckbox, itemLabel, deleteButton)
+			);
 		});
 
-	let listOl = create("ol").classes("list").append(itemsList);
+	let listOl = ol(classes("list"), nodes(itemsList));
 
-	return [h1, showDoneCheckbox, showDoneLabel, textInput, listOl];
+	yield nodes(heading, showDoneCheckbox, showDoneLabel, textInput, listOl);
 }
 
 define("to-do-app", todoApp);
