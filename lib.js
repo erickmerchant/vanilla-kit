@@ -1,4 +1,5 @@
 const SVG_NAMESPACE = "http://www.w3.org/2000/svg";
+const ELEMENT = Symbol("element");
 
 let current;
 let queue = [];
@@ -10,159 +11,6 @@ let attributeObserver = new MutationObserver((mutationList) => {
 		target.watched[attributeName] = target.getAttribute(attributeName);
 	}
 });
-
-export function prop(key, value) {
-	return (element) => {
-		mutate(
-			element,
-			(element, value) => {
-				element[key] = value;
-			},
-			value
-		);
-	};
-}
-
-export function attr(key, value) {
-	return (element) => {
-		mutate(
-			element,
-			(element, value) => {
-				if (value === true || value === false || value == null) {
-					element.toggleAttribute(key, !!value);
-				} else {
-					element.setAttribute(key, value);
-				}
-			},
-			value
-		);
-	};
-}
-
-export function classes(...classes) {
-	return (element) => {
-		classes = classes.flat(Infinity).reduce((acc, c) => {
-			if (typeof c === "object") {
-				Object.assign(acc, c);
-			} else {
-				acc[c] = true;
-			}
-
-			return acc;
-		}, {});
-
-		for (let [key, value] of Object.entries(classes)) {
-			mutate(
-				element,
-				(element, value) => {
-					for (let k of key.split(" ")) {
-						element.classList.toggle(k, value);
-					}
-				},
-				value
-			);
-		}
-	};
-}
-
-export function styles(styles) {
-	return (element) => {
-		for (let [key, value] of Object.entries(styles)) {
-			mutate(
-				element,
-				(element, value) => {
-					element.style.setProperty(key, value);
-				},
-				value
-			);
-		}
-	};
-}
-
-export function data(data) {
-	return (element) => {
-		for (let [key, value] of Object.entries(data)) {
-			mutate(
-				element,
-				(element, value) => {
-					element.dataSet[key] = value;
-				},
-				value
-			);
-		}
-	};
-}
-
-export function on(events, handler, options = {}) {
-	return (element) => {
-		element = element.deref();
-
-		if (element) {
-			for (let event of [].concat(events)) {
-				element.addEventListener(event, handler, options);
-			}
-		}
-	};
-}
-
-export function nodes(...children) {
-	return (_, target) => {
-		children = children.flat(Infinity);
-
-		for (let child of children) {
-			if (typeof child === "function") {
-				child = [child];
-			}
-
-			if (typeof child === "object" && child[Symbol.iterator] != null) {
-				let bounds = comments(target);
-
-				mutate(target, () => {
-					let [start, end] = bounds();
-					let currentChild =
-						start && start.nextSibling !== end ? start.nextSibling : null;
-					let fragment = new DocumentFragment();
-
-					for (let item of child) {
-						if (!currentChild) {
-							let result = item();
-							let element = result?.element ?? result;
-
-							if (element != null) {
-								fragment.append(element);
-							}
-						}
-
-						currentChild =
-							currentChild?.nextSibling !== end
-								? currentChild?.nextSibling
-								: null;
-					}
-
-					end.before(fragment);
-
-					clear(currentChild, end);
-				});
-			} else {
-				let el = target.deref();
-
-				el.append(child);
-			}
-		}
-	};
-}
-
-export function text(txt) {
-	return (_, target) => {
-		mutate(
-			target,
-			(element, txt) => {
-				element.textContent = txt;
-			},
-			txt
-		);
-	};
-}
 
 export function effect(callback) {
 	queue.push(callback);
@@ -193,22 +41,189 @@ export function watch(object) {
 	return new Proxy(object, {set, get, deleteProperty});
 }
 
-export function h(default_tag, namespace) {
-	let fn =
-		(tag) =>
-		(...fns) => {
-			let element = new WeakRef(
-				namespace
-					? document.createElementNS(namespace, tag)
-					: document.createElement(tag)
+export function use(element) {
+	element = new WeakRef(element);
+
+	return {
+		[ELEMENT]: () => element.deref(),
+		prop(key, value) {
+			mutate(
+				element,
+				(element, value) => {
+					element[key] = value;
+				},
+				value
 			);
 
-			for (let fn of fns) {
-				fn(element, element);
+			return this;
+		},
+		attr(key, value) {
+			if (value === undefined) {
+				let el = element.deref();
+
+				if (el.watched != null) {
+					return el.watched[key];
+				} else {
+					return el.getAttribute(key);
+				}
+			} else {
+				mutate(
+					element,
+					(element, value) => {
+						if (value === true || value === false || value == null) {
+							element.toggleAttribute(key, !!value);
+						} else {
+							element.setAttribute(key, value);
+						}
+					},
+					value
+				);
 			}
 
-			return element.deref();
-		};
+			return this;
+		},
+		classes(...classes) {
+			classes = classes.flat(Infinity).reduce((acc, c) => {
+				if (typeof c === "object") {
+					Object.assign(acc, c);
+				} else {
+					acc[c] = true;
+				}
+
+				return acc;
+			}, {});
+
+			for (let [key, value] of Object.entries(classes)) {
+				mutate(
+					element,
+					(element, value) => {
+						for (let k of key.split(" ")) {
+							element.classList.toggle(k, value);
+						}
+					},
+					value
+				);
+			}
+
+			return this;
+		},
+		styles(styles) {
+			for (let [key, value] of Object.entries(styles)) {
+				mutate(
+					element,
+					(element, value) => {
+						element.style.setProperty(key, value);
+					},
+					value
+				);
+			}
+
+			return this;
+		},
+		data(data) {
+			for (let [key, value] of Object.entries(data)) {
+				mutate(
+					element,
+					(element, value) => {
+						element.dataSet[key] = value;
+					},
+					value
+				);
+			}
+
+			return this;
+		},
+		on(events, handler, options = {}) {
+			let el = element.deref();
+
+			if (el) {
+				for (let event of [].concat(events)) {
+					el.addEventListener(event, handler, options);
+				}
+			}
+
+			return this;
+		},
+		nodes(...children) {
+			children = children.flat(Infinity);
+
+			for (let child of children) {
+				if (typeof child === "function") {
+					child = [child];
+				}
+
+				if (typeof child === "object" && child[Symbol.iterator] != null) {
+					let bounds = comments(element);
+
+					mutate(element, () => {
+						let [start, end] = bounds();
+						let currentChild =
+							start && start.nextSibling !== end ? start.nextSibling : null;
+						let fragment = new DocumentFragment();
+
+						for (let item of child) {
+							if (!currentChild) {
+								let result = item();
+								result = result?.[ELEMENT]?.() ?? result;
+
+								if (result != null) {
+									fragment.append(result);
+								}
+							}
+
+							currentChild =
+								currentChild?.nextSibling !== end
+									? currentChild?.nextSibling
+									: null;
+						}
+
+						end.before(fragment);
+
+						clear(currentChild, end);
+					});
+				} else {
+					let el = element.deref();
+					let result = child?.[ELEMENT]?.() ?? child;
+
+					el.append(result);
+				}
+			}
+
+			return this;
+		},
+		text(txt) {
+			mutate(
+				element,
+				(element, txt) => {
+					element.textContent = txt;
+				},
+				txt
+			);
+
+			return this;
+		},
+		shadow(mode = "open") {
+			let el = element.deref();
+
+			if (el.shadowRoot) {
+				return use(el.shadowRoot);
+			}
+
+			el.attachShadow({mode});
+
+			return use(el.shadowRoot);
+		},
+	};
+}
+
+export function h(default_tag, namespace) {
+	let fn = (tag) => () => {
+		let element = namespace
+			? document.createElementNS(namespace, tag)
+			: document.createElement(tag);
+
+		return use(element);
+	};
 
 	return new Proxy(fn(default_tag), {
 		get(_, tag) {
@@ -273,35 +288,20 @@ export function each(list) {
 	};
 }
 
-export function define(name, view, shadow = false) {
+export function define(name, view) {
 	customElements.define(
 		name,
 		class extends HTMLElement {
 			watched = watch({});
 
 			connectedCallback() {
-				let host = new WeakRef(this);
-				let target = host;
-
-				if (shadow) {
-					if (!this.shadowRoot) {
-						this.attachShadow({
-							mode: typeof shadow === "string" ? shadow : "open",
-						});
-					}
-
-					target = new WeakRef(this.shadowRoot);
-				}
-
 				for (let attr of this.attributes) {
 					this.watched[attr.name] = attr.value;
 				}
 
 				attributeObserver.observe(this, {attributes: true});
 
-				for (let fn of view(this.watched)) {
-					fn(host, target);
-				}
+				view(use(this));
 			}
 		}
 	);
