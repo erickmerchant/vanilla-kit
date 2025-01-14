@@ -1,0 +1,98 @@
+*,
+::before,
+::after {
+	box-sizing: border-box;
+	max-inline-size: 100%;
+	padding: 0;
+	margin: 0;
+	color: inherit;
+	font: inherit;
+	-webkit-text-size-adjust: none;
+}
+
+:host {
+	display: grid;
+	background-color: oklch(99.9% 0 0);
+	margin: 0;
+	place-items: center;
+	font-family: ui-monospace, monospace;
+	font-weight: bold;
+	width: calc(2.5em * var(--width));
+}
+
+button {
+	grid-column: var(--column);
+	grid-row: var(--row);
+	appearance: none;
+	background-color: oklch(80% 0 0);
+	border: 0.3em outset oklch(90% 0 0);
+	font-size: 1em;
+	font-weight: bold;
+	aspect-ratio: 1;
+	height: 100%;
+	width: 100%;
+
+	&:where(.revealed) {
+		background-color: oklch(90% 0 0);
+		border-color: oklch(0% 0 0 / 0);
+	}
+
+	&:where(.armed-adjacent-count--1) {
+		color: oklch(50% 0.4 240);
+	}
+
+	&:where(.armed-adjacent-count--2) {
+		color: oklch(50% 0.4 270);
+	}
+
+	&:where(.armed-adjacent-count--3) {
+		color: oklch(50% 0.4 300);
+	}
+
+	&:where(.armed-adjacent-count--4) {
+		color: oklch(50% 0.4 330);
+	}
+
+	&:where(.armed-adjacent-count--5) {
+		color: oklch(50% 0.4 0);
+	}
+
+	&:where(.armed-adjacent-count--6) {
+		color: oklch(50% 0.4 30);
+	}
+
+	&:where(.armed-adjacent-count--7) {
+		color: oklch(50% 0.4 60);
+	}
+
+	&:where(.armed-adjacent-count--8) {
+		color: oklch(50% 0 0);
+	}
+
+	&:where(.flagged.revealed:not(.armed-state)) {
+		--content: ;
+	}
+}
+
+.info-panel {
+	display: flex;
+	padding-block: 1em;
+	padding-inline: 0.3em;
+	flex-wrap: wrap;
+	gap: 1em;
+	justify-content: space-between;
+	width: 100%;
+}
+
+[role="grid"] {
+	display: grid;
+	background-color: oklch(80% 0 0);
+	grid-auto-rows: auto;
+	grid-template-columns: repeat(var(--width), 1fr);
+	gap: 1px;
+	width: 100%;
+}
+
+[role="row"] {
+	display: contents;
+}
