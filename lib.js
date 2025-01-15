@@ -45,7 +45,10 @@ export function use(element) {
 	element = new WeakRef(element);
 
 	return {
-		[ELEMENT]: () => element.deref(),
+		[ELEMENT]: element,
+		deref() {
+			return element.deref();
+		},
 		prop(key, value) {
 			mutate(
 				element,
@@ -58,27 +61,17 @@ export function use(element) {
 			return this;
 		},
 		attr(key, value) {
-			if (value === undefined) {
-				let el = element.deref();
-
-				if (el.watched != null) {
-					return el.watched[key];
-				} else {
-					return el.getAttribute(key);
-				}
-			} else {
-				mutate(
-					element,
-					(element, value) => {
-						if (value === true || value === false || value == null) {
-							element.toggleAttribute(key, !!value);
-						} else {
-							element.setAttribute(key, value);
-						}
-					},
-					value
-				);
-			}
+			mutate(
+				element,
+				(element, value) => {
+					if (value === true || value === false || value == null) {
+						element.toggleAttribute(key, !!value);
+					} else {
+						element.setAttribute(key, value);
+					}
+				},
+				value
+			);
 
 			return this;
 		},
@@ -164,7 +157,7 @@ export function use(element) {
 						for (let item of child) {
 							if (!currentChild) {
 								let result = item();
-								result = result?.[ELEMENT]?.() ?? result;
+								result = result?.[ELEMENT]?.deref?.() ?? result;
 
 								if (result != null) {
 									fragment.append(result);
@@ -183,7 +176,7 @@ export function use(element) {
 					});
 				} else {
 					let el = element.deref();
-					let result = child?.[ELEMENT]?.() ?? child;
+					let result = child?.[ELEMENT]?.deref?.() ?? child;
 
 					el.append(result);
 				}
@@ -212,6 +205,16 @@ export function use(element) {
 			el.attachShadow({mode});
 
 			return use(el.shadowRoot);
+		},
+		find(search) {
+			let el = element.deref();
+			let results = [];
+
+			for (let result of el.querySelector(search)) {
+				results.push(use(result));
+			}
+
+			return results;
 		},
 	};
 }
@@ -301,7 +304,7 @@ export function define(name, view) {
 
 				attributeObserver.observe(this, {attributes: true});
 
-				view(use(this));
+				view(use(this), this.watched);
 			}
 		}
 	);

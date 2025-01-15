@@ -8,10 +8,10 @@ const PLAY_STATES = {
 	WON: 2,
 };
 
-export default function mineSweeper(host) {
-	let height = +host.attr("height");
-	let width = +host.attr("width");
-	let mineCount = +host.attr("mine-count");
+export default function mineSweeper(host, attributes) {
+	let height = +attributes.height;
+	let width = +attributes.width;
+	let mineCount = +attributes["mine-count"];
 	let state = watch({
 		playState: PLAY_STATES.PLAYING,
 		time: 0,
