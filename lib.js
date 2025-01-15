@@ -210,7 +210,7 @@ export function use(element) {
 			let el = element.deref();
 			let results = [];
 
-			for (let result of el.querySelector(search)) {
+			for (let result of el.querySelectorAll(search)) {
 				results.push(use(result));
 			}
 
