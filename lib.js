@@ -118,7 +118,7 @@ export function use(element) {
 				mutate(
 					element,
 					(element, value) => {
-						element.dataSet[key] = value;
+						element.dataset[key] = value;
 					},
 					value
 				);
