@@ -1,4 +1,4 @@
-import {watch, html, define} from "../lib.js";
+import {watch, html, define, effect} from "../lib.js";
 
 let {div, button} = html;
 
@@ -16,6 +16,7 @@ export default function mineSweeper(host, attributes) {
 		playState: PLAY_STATES.PLAYING,
 		time: 0,
 		flagCount: mineCount,
+		hasFocus: [],
 	});
 	let startTime = null;
 	let timeInterval = null;
@@ -63,43 +64,49 @@ export default function mineSweeper(host, attributes) {
 
 		gameBoard.set(`${col} ${row}`, square);
 
+		let btn = button()
+			.attr("type", "button")
+			.styles({
+				"--column": col + 1,
+				"--row": row + 1,
+			})
+			.attr("aria-label", () => (square.isRevealed ? null : "Hidden"))
+			.classes({
+				revealed: () => square.isRevealed,
+				flagged: () => square.isFlagged,
+				...range(8).reduce((classes, i) => {
+					classes[`armed-adjacent-count--${i}`] = () =>
+						square.armedAdjacentCount === i;
+
+					return classes;
+				}, {}),
+			})
+			.on("click", revealSquare(col, row))
+			.on("contextmenu", toggleFlag(col, row))
+			.on("keydown", moveFocus(col, row))
+			.text(() => {
+				if (!square.isRevealed) {
+					return square.isFlagged ? "🚩" : "";
+				} else {
+					return square.isFlagged && !square.isArmed
+						? "❌"
+						: square.isArmed
+							? "💥"
+							: square.armedAdjacentCount || "";
+				}
+			});
+
+		effect(() => {
+			if (state.hasFocus?.[0] === col && state.hasFocus?.[1] === row) {
+				btn.deref().focus();
+			}
+		});
+
 		return div()
 			.attr("role", "gridcell")
 			.attr("aria-rowindex", row)
 			.attr("aria-colindex", col)
-			.nodes(
-				button()
-					.attr("type", "button")
-					.styles({
-						"--column": col + 1,
-						"--row": row + 1,
-					})
-					.attr("aria-label", () => (square.isRevealed ? null : "Hidden"))
-					.classes({
-						revealed: () => square.isRevealed,
-						flagged: () => square.isFlagged,
-						...range(8).reduce((classes, i) => {
-							classes[`armed-adjacent-count--${i}`] = () =>
-								square.armedAdjacentCount === i;
-
-							return classes;
-						}, {}),
-					})
-					.on("click", revealSquare(col, row))
-					.on("contextmenu", toggleFlag(col, row))
-					.on("keydown", moveFocus(col, row))
-					.text(() => {
-						if (!square.isRevealed) {
-							return square.isFlagged ? "🚩" : "";
-						} else {
-							return square.isFlagged && !square.isArmed
-								? "❌"
-								: square.isArmed
-									? "💥"
-									: square.armedAdjacentCount || "";
-						}
-					})
-			);
+			.nodes(btn);
 	}
 
 	function updateTime() {
@@ -207,33 +214,14 @@ export default function mineSweeper(host, attributes) {
 	function moveFocus(x, y) {
 		return (e) => {
 			let keys = {
-				ArrowUp: [[x, y - 1]],
-				ArrowDown: [[x, y + 1]],
-				ArrowLeft: [
-					[x - 1, y],
-					[width - 1, y - 1],
-				],
-				ArrowRight: [
-					[x + 1, y],
-					[0, y + 1],
-				],
+				ArrowUp: y > 0 ? [x, y - 1] : [],
+				ArrowDown: y < height - 1 ? [x, y + 1] : [],
+				ArrowLeft: x > 0 ? [x - 1, y] : y > 0 ? [width - 1, y - 1] : [],
+				ArrowRight:
+					x < width - 1 ? [x + 1, y] : y < height - 1 ? [0, y + 1] : [],
 			};
 
-			for (let [x, y] of keys?.[e.key] ?? []) {
-				let square = target.element
-					?.deref()
-					?.querySelector(
-						`[role="row"]:nth-child(${y + 1}) [role="gridcell"]:nth-child(${
-							x + 1
-						}) button`
-					);
-
-				if (square) {
-					square.focus();
-
-					break;
-				}
-			}
+			state.hasFocus = keys?.[e.key] ?? [];
 		};
 	}
 
