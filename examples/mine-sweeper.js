@@ -1,4 +1,4 @@
-import {watch, html, define, effect} from "../lib.js";
+import {watch, effect, define, html} from "../lib.js";
 
 let {div, button} = html;
 
@@ -29,13 +29,15 @@ export default function mineSweeper(host, attributes) {
 		.nodes(
 			div().text(() => `🚩 ${state.flagCount}`),
 			div()
-				.attr("aria-live", "polite")
+				.aria({live: "polite"})
 				.text(() => ["", "💀", "🎉"][state.playState]),
 			div().text(() => `⏱️ ${state.time}`)
 		);
 	let board = div()
-		.attr("aria-rowcount", height)
-		.attr("aria-colcount", width)
+		.aria({
+			rowcount: height,
+			colcount: width,
+		})
 		.attr("role", "grid")
 		.nodes(
 			range(height).map((row) =>
@@ -70,7 +72,7 @@ export default function mineSweeper(host, attributes) {
 				"--column": col + 1,
 				"--row": row + 1,
 			})
-			.attr("aria-label", () => (square.isRevealed ? null : "Hidden"))
+			.aria({label: () => (square.isRevealed ? null : "Hidden")})
 			.classes({
 				revealed: () => square.isRevealed,
 				flagged: () => square.isFlagged,
@@ -104,8 +106,10 @@ export default function mineSweeper(host, attributes) {
 
 		return div()
 			.attr("role", "gridcell")
-			.attr("aria-rowindex", row)
-			.attr("aria-colindex", col)
+			.aria({
+				rowindex: row,
+				colindex: col,
+			})
 			.nodes(btn);
 	}
 

@@ -1,6 +1,4 @@
-const SVG_NAMESPACE = "http://www.w3.org/2000/svg";
-const ELEMENT = Symbol("element");
-
+let ELEMENT = Symbol("element");
 let current;
 let queue = [];
 let reads = new WeakMap();
@@ -76,26 +74,24 @@ export function use(element) {
 			return this;
 		},
 		classes(...classes) {
-			classes = classes.flat(Infinity).reduce((acc, c) => {
-				if (typeof c === "object") {
-					Object.assign(acc, c);
-				} else {
-					acc[c] = true;
+			classes = classes.flat(Infinity);
+
+			for (let c of classes) {
+				if (typeof c !== "object") {
+					c = {[c]: true};
 				}
 
-				return acc;
-			}, {});
-
-			for (let [key, value] of Object.entries(classes)) {
-				mutate(
-					element,
-					(element, value) => {
-						for (let k of key.split(" ")) {
-							element.classList.toggle(k, value);
-						}
-					},
-					value
-				);
+				for (let [key, value] of Object.entries(c)) {
+					mutate(
+						element,
+						(element, value) => {
+							for (let k of key.split(" ")) {
+								element.classList.toggle(k, value);
+							}
+						},
+						value
+					);
+				}
 			}
 
 			return this;
@@ -106,6 +102,19 @@ export function use(element) {
 					element,
 					(element, value) => {
 						element.style.setProperty(key, value);
+					},
+					value
+				);
+			}
+
+			return this;
+		},
+		aria(attrs) {
+			for (let [key, value] of Object.entries(attrs)) {
+				mutate(
+					element,
+					(element, value) => {
+						element.setAttribute(`aria-${key}`, value);
 					},
 					value
 				);
@@ -219,25 +228,28 @@ export function use(element) {
 	};
 }
 
-export function h(default_tag, namespace) {
-	let fn = (tag) => () => {
-		let element = namespace
-			? document.createElementNS(namespace, tag)
-			: document.createElement(tag);
+export function define(name, view) {
+	customElements.define(
+		name,
+		class extends HTMLElement {
+			watched = watch({});
 
-		return use(element);
-	};
+			connectedCallback() {
+				for (let attr of this.attributes) {
+					this.watched[attr.name] = attr.value;
+				}
 
-	return new Proxy(fn(default_tag), {
-		get(_, tag) {
-			return fn(tag);
-		},
-	});
+				attributeObserver.observe(this, {attributes: true});
+
+				view(use(this), this.watched);
+			}
+		}
+	);
 }
 
-export let svg = h("svg", SVG_NAMESPACE);
-
-export let html = h("html");
+export let html = h("svg", "http://www.w3.org/1999/xhtml");
+export let svg = h("html", "http://www.w3.org/2000/svg");
+export let math = h("math", "http://www.w3.org/1998/Math/MathML");
 
 export function each(list) {
 	let mapper;
@@ -291,23 +303,18 @@ export function each(list) {
 	};
 }
 
-export function define(name, view) {
-	customElements.define(
-		name,
-		class extends HTMLElement {
-			watched = watch({});
+function h(default_tag, namespace) {
+	let create = (tag) => () => {
+		let element = document.createElementNS(namespace, tag);
 
-			connectedCallback() {
-				for (let attr of this.attributes) {
-					this.watched[attr.name] = attr.value;
-				}
+		return use(element);
+	};
 
-				attributeObserver.observe(this, {attributes: true});
-
-				view(use(this), this.watched);
-			}
-		}
-	);
+	return new Proxy(create(default_tag), {
+		get(_, tag) {
+			return create(tag);
+		},
+	});
 }
 
 function clear(currentChild, end) {

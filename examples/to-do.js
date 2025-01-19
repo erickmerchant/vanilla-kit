@@ -1,4 +1,4 @@
-import {watch, effect, html, svg, each, define} from "../lib.js";
+import {watch, effect, define, html, svg, each} from "../lib.js";
 
 let {input, label, h1, li, button, ol} = html;
 let {title, path} = svg;
