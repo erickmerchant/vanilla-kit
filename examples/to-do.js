@@ -157,4 +157,4 @@ export default function todoApp(host) {
 	host.nodes(heading, showDoneCheckbox, showDoneLabel, textInput, listOl);
 }
 
-define("to-do-app", todoApp);
+define("to-do-app").connected(todoApp);

@@ -4,11 +4,6 @@ let queue = [];
 let reads = new WeakMap();
 let registered = new WeakSet();
 let scheduled = false;
-let attributeObserver = new MutationObserver((mutationList) => {
-	for (let {target, attributeName} of mutationList) {
-		target.watched[attributeName] = target.getAttribute(attributeName);
-	}
-});
 
 export function effect(callback) {
 	queue.push(callback);
@@ -228,27 +223,67 @@ export function use(element) {
 	};
 }
 
-export function define(name, view) {
-	customElements.define(
-		name,
-		class extends HTMLElement {
-			watched = watch({});
+export function define(name) {
+	let attributes = [];
+	let connected = () => {};
+	let disconnected = () => {};
+
+	setTimeout(() => {
+		class CustomElement extends HTMLElement {
+			element = use(this);
+			_attributes = watch({});
+
+			get observedAttributes() {
+				return attributes;
+			}
 
 			connectedCallback() {
-				for (let attr of this.attributes) {
-					this.watched[attr.name] = attr.value;
+				for (let key of attributes) {
+					this._attributes[key] = this.getAttribute(key);
 				}
 
-				attributeObserver.observe(this, {attributes: true});
+				connected(this.element, (key) => this._attributes[key]);
+			}
 
-				view(use(this), this.watched);
+			disconnectedCallback() {
+				disconnected(this.element, (key) => this._attributes[key]);
+			}
+
+			attributeChangedCallback(key, old, value) {
+				if (old !== value) {
+					this._attributes[key] = value;
+				}
 			}
 		}
-	);
+
+		customElements.define(name, CustomElement);
+	}, 0);
+
+	let factory = html[name];
+
+	factory.attributes = (...attrs) => {
+		attributes = attrs;
+
+		return factory;
+	};
+
+	factory.connected = (cb) => {
+		connected = cb;
+
+		return factory;
+	};
+
+	factory.disconnected = (cb) => {
+		disconnected = cb;
+
+		return factory;
+	};
+
+	return factory;
 }
 
-export let html = h("svg", "http://www.w3.org/1999/xhtml");
-export let svg = h("html", "http://www.w3.org/2000/svg");
+export let html = h();
+export let svg = h("svg", "http://www.w3.org/2000/svg");
 export let math = h("math", "http://www.w3.org/1998/Math/MathML");
 
 export function each(list) {
@@ -257,14 +292,14 @@ export function each(list) {
 	let views = [];
 
 	return {
-		map(m) {
-			mapper = m;
+		map(cb) {
+			mapper = cb;
 
 			return this;
 		},
 
-		filter(f) {
-			filterer = f;
+		filter(cb) {
+			filterer = cb;
 
 			return this;
 		},
@@ -303,14 +338,14 @@ export function each(list) {
 	};
 }
 
-function h(default_tag, namespace) {
+function h(default_tag, namespace = "http://www.w3.org/1999/xhtml") {
 	let create = (tag) => () => {
 		let element = document.createElementNS(namespace, tag);
 
 		return use(element);
 	};
 
-	return new Proxy(create(default_tag), {
+	return new Proxy(default_tag ? create(default_tag) : {}, {
 		get(_, tag) {
 			return create(tag);
 		},
