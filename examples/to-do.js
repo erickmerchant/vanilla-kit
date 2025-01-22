@@ -3,7 +3,7 @@ import {watch, effect, define, html, svg, each} from "../lib.js";
 let {input, label, h1, li, button, ol} = html;
 let {title, path} = svg;
 
-export default function todoApp(host) {
+define("to-do-app").connected((host) => {
 	let state = watch(
 		JSON.parse(localStorage.getItem("to-do-app")) ?? {
 			showDone: true,
@@ -155,6 +155,4 @@ export default function todoApp(host) {
 	let listOl = ol().classes("list").nodes(itemsList);
 
 	host.nodes(heading, showDoneCheckbox, showDoneLabel, textInput, listOl);
-}
-
-define("to-do-app").connected(todoApp);
+});
