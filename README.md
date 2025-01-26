@@ -59,9 +59,7 @@ effect(() => {
 
 ### observer.attr(key)
 
-### obserse.find(query)
-
-### found.results()
+### observer.find(query)
 
 ### each(list)
 
