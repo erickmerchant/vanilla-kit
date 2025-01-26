@@ -142,6 +142,10 @@ export function use(element) {
 			return this;
 		},
 		nodes(...children) {
+			let el = element.deref();
+
+			clear(el.firstChild);
+
 			children = children.flat(Infinity);
 
 			for (let child of children) {
@@ -179,7 +183,6 @@ export function use(element) {
 						clear(currentChild, end);
 					});
 				} else {
-					let el = element.deref();
 					let result = child?.[ELEMENT]?.deref?.() ?? child;
 
 					el.append(result);
@@ -202,57 +205,92 @@ export function use(element) {
 		shadow(mode = "open") {
 			let el = element.deref();
 
-			if (el.shadowRoot) {
+			if (el) {
+				if (el.shadowRoot) {
+					return use(el.shadowRoot);
+				}
+
+				el.attachShadow({mode});
+
 				return use(el.shadowRoot);
 			}
-
-			el.attachShadow({mode});
-
-			return use(el.shadowRoot);
 		},
-		find(search) {
+		observe() {
 			let el = element.deref();
-			let results = [];
 
-			for (let result of el.querySelectorAll(search)) {
-				results.push(use(result));
+			if (!el) return;
+
+			let attributes = {};
+
+			for (let attr of el.attributes) {
+				attributes[attr.name] = attr.value;
 			}
 
-			return results;
+			attributes = attributes(watch);
+
+			let queries = {};
+			let observer = new MutationObserver(() => {
+				let el = element.deref();
+
+				if (el == null) {
+					observer.disconnect();
+
+					return;
+				}
+			});
+
+			observer.connect(el, {attributes: true, childList: true, subtree: true});
+
+			return {
+				attr(key) {
+					let el = element.deref();
+
+					if (!el) return;
+
+					let val = attributes[key];
+
+					if (val == null) {
+						val = el.getAttribute(key);
+
+						attributes[key] = val;
+					}
+
+					return val;
+				},
+				find(query) {
+					let el = element.deref();
+
+					if (!el) return;
+
+					queries[query] = watch([...document.querySelectorAll(query)]);
+
+					return {
+						*[Symbol.iterator]() {
+							for (let el of queries[query].splice(0, Infinity)) {
+								yield el;
+							}
+						},
+					};
+				},
+			};
 		},
 	};
 }
 
 export function define(name) {
-	let attributes = [];
 	let connected = () => {};
 	let disconnected = () => {};
 
 	setTimeout(() => {
 		class CustomElement extends HTMLElement {
 			element = use(this);
-			_attributes = watch({});
-
-			get observedAttributes() {
-				return attributes;
-			}
 
 			connectedCallback() {
-				for (let key of attributes) {
-					this._attributes[key] = this.getAttribute(key);
-				}
-
-				connected(this.element, (key) => this._attributes[key]);
+				connected(this.element);
 			}
 
 			disconnectedCallback() {
-				disconnected(this.element, (key) => this._attributes[key]);
-			}
-
-			attributeChangedCallback(key, old, value) {
-				if (old !== value) {
-					this._attributes[key] = value;
-				}
+				disconnected(this.element);
 			}
 		}
 
@@ -260,12 +298,6 @@ export function define(name) {
 	}, 0);
 
 	let factory = html[name];
-
-	factory.attributes = (...attrs) => {
-		attributes = attrs;
-
-		return factory;
-	};
 
 	factory.connected = (cb) => {
 		connected = cb;
