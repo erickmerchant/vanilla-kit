@@ -226,10 +226,10 @@ export function use(element) {
 				attributes[attr.name] = attr.value;
 			}
 
-			attributes = attributes(watch);
+			attributes = watch(attributes);
 
 			let queries = {};
-			let observer = new MutationObserver(() => {
+			let observer = new MutationObserver((records) => {
 				let el = element.deref();
 
 				if (el == null) {
@@ -237,9 +237,29 @@ export function use(element) {
 
 					return;
 				}
+
+				for (let record of records) {
+					if (record.type === "attributes") {
+						attributes[record.attributeName] = el.getAttribute(
+							record.attributeName
+						);
+					}
+
+					if (record.type === "childList") {
+						for (let query of Object.keys(queries)) {
+							let results = [...el.querySelectorAll(query)].filter((n) =>
+								[...record.addedNodes].includes(n)
+							);
+
+							if (results.length) {
+								queries[query].splice(0, 0, ...results);
+							}
+						}
+					}
+				}
 			});
 
-			observer.connect(el, {attributes: true, childList: true, subtree: true});
+			observer.observe(el, {attributes: true, childList: true, subtree: true});
 
 			return {
 				attr(key) {
@@ -259,15 +279,20 @@ export function use(element) {
 				},
 				find(query) {
 					let el = element.deref();
+					let sent = new WeakSet();
 
 					if (!el) return;
 
-					queries[query] = watch([...document.querySelectorAll(query)]);
+					queries[query] = watch([...el.querySelectorAll(query)]);
 
 					return {
 						*[Symbol.iterator]() {
 							for (let el of queries[query].splice(0, Infinity)) {
-								yield el;
+								if (!sent.has(el)) {
+									yield use(el);
+
+									sent.add(el);
+								}
 							}
 						},
 					};

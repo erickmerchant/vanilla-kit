@@ -1,6 +1,6 @@
 # vanilla-kit
 
-A tiny front-end framework using a fluent interface for constructing UI. It also has shallow reactivity. Only **~1.5 kB** minified and compressed. Use or download it from a CDN like [jsDelivr](https://cdn.jsdelivr.net/gh/erickmerchant/vanilla-kit/lib.min.js) and add it to your import map.
+A tiny front-end framework using a fluent interface for constructing UI. It also has shallow reactivity. Only **~1.7 kB** minified and compressed. Use or download it from a CDN like [jsDelivr](https://cdn.jsdelivr.net/gh/erickmerchant/vanilla-kit/lib.min.js) and add it to your import map.
 
 ## API
 
