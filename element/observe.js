@@ -7,8 +7,8 @@ Element.prototype.observe = function () {
 
 	let attributes = {};
 
-	for (let attr of el.attributes) {
-		attributes[attr.name] = attr.value;
+	for (let attr of el.getAttributeNames()) {
+		attributes[attr] = el.getAttribute(attr);
 	}
 
 	attributes = watch(attributes);
@@ -63,8 +63,8 @@ Element.prototype.observe = function () {
 			return val;
 		},
 		find: (query) => {
-			let el = this.element.deref();
 			let sent = new WeakSet();
+			let el = this.element.deref();
 
 			if (!el) return;
 
