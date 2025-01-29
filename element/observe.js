@@ -37,7 +37,7 @@ Element.prototype.observe = function () {
 					);
 
 					if (results.length) {
-						queries[query].splice(0, 0, ...results);
+						queries[query].splice(queries[query].length, 0, ...results);
 					}
 				}
 			}
@@ -68,16 +68,21 @@ Element.prototype.observe = function () {
 
 			if (!el) return;
 
-			queries[query] = watch([...el.querySelectorAll(query)]);
+			let results = [...el.querySelectorAll(query)];
+			let index = 0;
+
+			queries[query] = watch(results);
 
 			return {
 				*[Symbol.iterator]() {
-					for (let el of queries[query].splice(0, Infinity)) {
+					for (let el of queries[query].slice(index)) {
 						if (!sent.has(el)) {
 							yield new Element(el);
 
 							sent.add(el);
 						}
+
+						index++;
 					}
 				},
 			};
