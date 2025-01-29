@@ -1,7 +1,12 @@
-import {watch, effect, html, svg} from "../prelude/min.js";
+import {watch, effect, html, svg} from "../lib.js";
 import {define} from "../define.js";
 import {each} from "../each.js";
+import "../element/attr.js";
 import "../element/classes.js";
+import "../element/nodes.js";
+import "../element/on.js";
+import "../element/prop.js";
+import "../element/text.js";
 
 let {input, label, h1, li, button, ol} = html;
 let {title, path} = svg;
