@@ -1,4 +1,4 @@
-import {Element, html} from "./lib.js";
+import {html, $} from "./dom.js";
 
 export function define(name) {
 	let connected = () => {};
@@ -6,7 +6,7 @@ export function define(name) {
 
 	setTimeout(() => {
 		class CustomElement extends HTMLElement {
-			element = new Element(this);
+			element = $(this);
 
 			connectedCallback() {
 				connected(this.element);

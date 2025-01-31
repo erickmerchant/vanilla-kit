@@ -1,4 +1,4 @@
-import {watch} from "./lib.js";
+import {watch} from "./reactivity.js";
 
 export function each(list) {
 	let mapper;

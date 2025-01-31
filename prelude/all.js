@@ -1,4 +1,5 @@
-export * from "../lib.js";
+export * from "../dom.js";
+export * from "../reactivity.js";
 export * from "../define.js";
 export * from "../each.js";
 import "../element/aria.js";

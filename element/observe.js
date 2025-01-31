@@ -1,4 +1,5 @@
-import {Element, watch} from "../lib.js";
+import {Element, $} from "../dom.js";
+import {watch} from "../reactivity.js";
 
 Element.prototype.observe = function () {
 	let el = this.element.deref();
@@ -73,7 +74,7 @@ Element.prototype.observe = function () {
 			return {
 				*[Symbol.iterator]() {
 					for (let el of queries[query].slice(index)) {
-						yield new Element(el);
+						yield $(el);
 
 						index++;
 					}

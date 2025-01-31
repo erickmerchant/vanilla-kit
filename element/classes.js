@@ -1,4 +1,5 @@
-import {Element, mutate} from "../lib.js";
+import {Element} from "../dom.js";
+import {mutate} from "../reactivity.js";
 
 Element.prototype.classes = function (...classes) {
 	classes = classes.flat(Infinity);

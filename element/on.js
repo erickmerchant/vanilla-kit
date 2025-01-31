@@ -1,4 +1,4 @@
-import {Element} from "../lib.js";
+import {Element} from "../dom.js";
 
 Element.prototype.on = function (events, handler, options = {}) {
 	let el = this.element.deref();

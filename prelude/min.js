@@ -1,4 +1,5 @@
-export * from "../lib.js";
+export * from "../dom.js";
+export * from "../reactivity.js";
 import "../element/attr.js";
 import "../element/nodes.js";
 import "../element/on.js";

@@ -1,14 +1,14 @@
 # vanilla-kit
 
-A tiny front-end framework using a fluent interface for constructing UI. It also has shallow reactivity. Less than 2kB minified and compressed. Use or download it from a CDN like [jsDelivr](https://cdn.jsdelivr.net/gh/erickmerchant/vanilla-kit/lib.min.js) and add it to your import map.
+A tiny front-end framework using a fluent interface for constructing UI. It also has shallow reactivity. Less than 2kB minified and compressed. Use or download it from a CDN like [jsDelivr](https://cdn.jsdelivr.net/gh/erickmerchant/vanilla-kit/prelude/all.js) and add it to your import map.
 
 ---
 
 ## API
 
-### _lib.js_
+### _dom.js_
 
-Where all the core functionality resides. If you wouldn't really use the framework without a feature then it's in lib.js. Otherwise it will be in its own module.
+Where everything for creating reactive state resides.
 
 #### watch(object)
 
@@ -17,6 +17,10 @@ Pass it an object (arrays supported) and it returns the object wrapped in a prox
 #### effect(callback)
 
 Pass it a callback to do operations that should get rerun when _watched_ objects are changed. It's for things not covered by the _element_ API. Eg. setting localStorage or calling methods on DOM elements. Only properties that are later changed will trigger a rerun. Internally this same method is used anywhere a callback called an _effect_ is allowed.
+
+### _dom.js_
+
+Where everything for creating DOM elements resides.
 
 #### html, svg, math
 
