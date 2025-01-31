@@ -32,12 +32,10 @@ Element.prototype.observe = function () {
 
 			if (record.type === "childList") {
 				for (let query of Object.keys(queries)) {
-					let results = [...el.querySelectorAll(query)].filter((n) =>
-						[...record.addedNodes].includes(n)
-					);
-
-					if (results.length) {
-						queries[query].splice(queries[query].length, 0, ...results);
+					for (let result of el.querySelectorAll(query)) {
+						if ([...record.addedNodes].includes(result)) {
+							queries[query].push(result);
+						}
 					}
 				}
 			}
@@ -63,7 +61,6 @@ Element.prototype.observe = function () {
 			return val;
 		},
 		find: (query) => {
-			let sent = new WeakSet();
 			let el = this.element.deref();
 
 			if (!el) return;
@@ -76,11 +73,7 @@ Element.prototype.observe = function () {
 			return {
 				*[Symbol.iterator]() {
 					for (let el of queries[query].slice(index)) {
-						if (!sent.has(el)) {
-							yield new Element(el);
-
-							sent.add(el);
-						}
+						yield new Element(el);
 
 						index++;
 					}
