@@ -1,6 +1,6 @@
 # vanilla-kit
 
-A tiny front-end framework using a fluent interface for constructing UI. It also has shallow reactivity. Less than **2 kB** minified and compressed. Use or download it from a CDN like [jsDelivr](https://cdn.jsdelivr.net/gh/erickmerchant/vanilla-kit/lib.min.js) and add it to your import map.
+A tiny front-end framework using a fluent interface for constructing UI. It also has shallow reactivity. Less than 2kB minified and compressed. Use or download it from a CDN like [jsDelivr](https://cdn.jsdelivr.net/gh/erickmerchant/vanilla-kit/lib.min.js) and add it to your import map.
 
 ---
 
@@ -30,25 +30,25 @@ Usually you won't use `Element` directly unless you want to write your own metho
 
 A method on `Element` instances that returns the underlying DOM element.
 
-#### $
+#### $(node)
 
-Wraps a DOM element in the fluent interface.
+Wraps a DOM node in the fluent interface.
 
 ### _define.js_
 
-Contains the API for creating Custom Elements.
+Contains the API for creating custom elements.
 
 #### define(name)
 
-Pass it the name of your Custom Element. It returns a definition that is also a _tag_.
+Pass it the name of your custom element. It returns a definition that is also a _tag_.
 
 #### definition.connected(callback)
 
-The passed callback is called in the Custom Element's `connectedCallback`.
+The callback is called in the custom element's `connectedCallback`.
 
 #### definition.disconnected(callback)
 
-The passed callback is called in the Custom Element's `disconnectedCallback`.
+The callback is called in the custom element's `disconnectedCallback`.
 
 ### _element/*.js_
 
