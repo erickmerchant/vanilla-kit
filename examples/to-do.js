@@ -1,4 +1,4 @@
-import {watch, effect, html, svg} from "../lib.js";
+import {watch, effect, html, svg, $} from "../lib.js";
 import {define} from "../define.js";
 import {each} from "../each.js";
 import "../element/attr.js";
@@ -163,4 +163,8 @@ define("to-do-app").connected((host) => {
 	let listOl = ol().classes("list").nodes(itemsList);
 
 	host.nodes(heading, showDoneCheckbox, showDoneLabel, textInput, listOl);
+
+	$(document.body).on(["dragover", "dragleave", "drop"], function (e) {
+		e.preventDefault();
+	});
 });

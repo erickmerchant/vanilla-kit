@@ -4,91 +4,6 @@ let reads = new WeakMap();
 let registered = new WeakSet();
 let scheduled = false;
 
-export class Element {
-	static derefIfElement(val) {
-		return typeof val === "object" && val instanceof Element
-			? val.deref()
-			: val;
-	}
-
-	constructor(element) {
-		this.element = new WeakRef(element);
-	}
-
-	deref() {
-		return this.element.deref();
-	}
-}
-
-export function effect(callback) {
-	queue.push(callback);
-
-	if (!scheduled) {
-		scheduled = true;
-
-		setTimeout(() => {
-			scheduled = false;
-
-			let callbacks = queue.splice(0, Infinity);
-			let prev = current;
-
-			for (let cb of callbacks) {
-				current = cb;
-
-				cb();
-			}
-
-			current = prev;
-		}, 0);
-	}
-}
-
-export function watch(object) {
-	reads.set(object, new Map());
-
-	return new Proxy(object, {set, get, deleteProperty});
-}
-
-export let html = h();
-export let svg = h("svg", "http://www.w3.org/2000/svg");
-export let math = h("math", "http://www.w3.org/1998/Math/MathML");
-
-export function mutate(element, callback, value = () => {}) {
-	let immediate = typeof value !== "function";
-	let cb = () => {
-		let el = element.deref();
-
-		if (el && registered.has(el)) {
-			callback(el, immediate ? value : value());
-		}
-	};
-	let el = element.deref();
-
-	if (el) {
-		registered.add(el);
-	}
-
-	if (immediate) {
-		cb();
-	} else {
-		effect(cb);
-	}
-}
-
-function h(default_tag, namespace = "http://www.w3.org/1999/xhtml") {
-	let create = (tag) => () => {
-		let element = document.createElementNS(namespace, tag);
-
-		return new Element(element);
-	};
-
-	return new Proxy(default_tag ? create(default_tag) : {}, {
-		get(_, tag) {
-			return create(tag);
-		},
-	});
-}
-
 function get(o, key, r) {
 	if (current) {
 		let callbacks = reads.get(o).get(key);
@@ -126,4 +41,93 @@ function deleteProperty(o, key) {
 	modify(o, key);
 
 	return Reflect.deleteProperty(o, key);
+}
+
+export function effect(callback) {
+	queue.push(callback);
+
+	if (!scheduled) {
+		scheduled = true;
+
+		setTimeout(() => {
+			scheduled = false;
+
+			let callbacks = queue.splice(0, Infinity);
+			let prev = current;
+
+			for (let cb of callbacks) {
+				current = cb;
+
+				cb();
+			}
+
+			current = prev;
+		}, 0);
+	}
+}
+
+export function watch(object) {
+	reads.set(object, new Map());
+
+	return new Proxy(object, {set, get, deleteProperty});
+}
+
+export class Element {
+	static derefIfElement(val) {
+		return typeof val === "object" && val instanceof Element
+			? val.deref()
+			: val;
+	}
+
+	constructor(element) {
+		this.element = new WeakRef(element);
+	}
+
+	deref() {
+		return this.element.deref();
+	}
+}
+
+export function $(node) {
+	return new Element(node);
+}
+
+function h(default_tag, namespace = "http://www.w3.org/1999/xhtml") {
+	let create = (tag) => () => {
+		let element = document.createElementNS(namespace, tag);
+
+		return new Element(element);
+	};
+
+	return new Proxy(default_tag ? create(default_tag) : {}, {
+		get(_, tag) {
+			return create(tag);
+		},
+	});
+}
+
+export let html = h();
+export let svg = h("svg", "http://www.w3.org/2000/svg");
+export let math = h("math", "http://www.w3.org/1998/Math/MathML");
+
+export function mutate(element, callback, value = () => {}) {
+	let immediate = typeof value !== "function";
+	let cb = () => {
+		let el = element.deref();
+
+		if (el && registered.has(el)) {
+			callback(el, immediate ? value : value());
+		}
+	};
+	let el = element.deref();
+
+	if (el) {
+		registered.add(el);
+	}
+
+	if (immediate) {
+		cb();
+	} else {
+		effect(cb);
+	}
 }

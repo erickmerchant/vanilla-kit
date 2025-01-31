@@ -24,11 +24,15 @@ These are proxies of objects that return functions called _tags_ that when calle
 
 #### Element
 
-Usually you won't use `Element` directly unless you want to write your own methods. It is exported so that methods can be added to it's prototype. You can also do `new Element(element)` to wrap a DOM element in the fluent interface.
+Usually you won't use `Element` directly unless you want to write your own methods. It is exported so that methods can be added to it's prototype.
 
 #### element.deref()
 
 A method on `Element` instances that returns the underlying DOM element.
+
+#### $
+
+Wraps a DOM element in the fluent interface.
 
 ### _define.js_
 
