@@ -6,7 +6,7 @@ A tiny front-end framework using a fluent interface for constructing UI. It also
 
 ## API
 
-### _dom.js_
+### _reactivity.js_
 
 Where everything for creating reactive state resides.
 
